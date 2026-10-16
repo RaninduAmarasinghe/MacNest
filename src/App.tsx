@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
+
+
+type DetectedTool = {
+  name: string;
+  installed: boolean;
+  version: string | null;
+};
 
 type Package = {
   name: string;
   description: string;
   category: string;
-  version: string;
+  version: string | null ;
   icon: string;
   installed: boolean;
+  
 };
 
 const initialPackages: Package[] = [
@@ -65,6 +74,34 @@ function App() {
   const [packages, setPackages] = useState(initialPackages);
   const [activePage, setActivePage] = useState("Dashboard");
   const [search, setSearch] = useState("");
+
+  // System scanner state
+  const [detectedTools, setDetectedTools] = useState<DetectedTool[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  // Scan the Mac for installed development tools
+  async function scanSystem() {
+    setIsScanning(true);
+    setScanError(null);
+
+    try {
+      const result = await invoke<DetectedTool[]>(
+        "scan_development_tools"
+      );
+
+      setDetectedTools(result);
+    } catch (error) {
+      setScanError(String(error));
+    } finally {
+      setIsScanning(false);
+    }
+  }
+
+  // Run the scan when MacNest opens
+  useEffect(() => {
+    void scanSystem();
+  }, []);
 
   const installedPackages = packages.filter(
     (pkg) => pkg.installed,
@@ -267,7 +304,62 @@ function App() {
                   </span>
                 </div>
               </div>
+<section className="system-scan">
+  <div className="section-heading">
+    <div>
+      <h3>System Scan</h3>
+      <p>Developer tools detected on this Mac.</p>
+    </div>
 
+    <button
+      className="scan-button"
+      onClick={() => void scanSystem()}
+      disabled={isScanning}
+    >
+      {isScanning ? "Scanning..." : "Scan Again"}
+    </button>
+  </div>
+
+  {scanError && (
+    <p className="scan-error">
+      Scan failed: {scanError}
+    </p>
+  )}
+
+  {isScanning && detectedTools.length === 0 && (
+    <p className="scan-message">
+      Scanning your Mac...
+    </p>
+  )}
+
+  {!isScanning &&
+    !scanError &&
+    detectedTools.length === 0 && (
+      <p className="scan-message">
+        No results yet.
+      </p>
+    )}
+
+  <div className="detected-tools">
+    {detectedTools.map((tool) => (
+      <article className="detected-tool" key={tool.name}>
+        <div>
+          <strong>{tool.name}</strong>
+          <p>{tool.version ?? "Not detected"}</p>
+        </div>
+
+        <span
+          className={`package-status ${
+            tool.installed ? "installed" : ""
+          }`}
+        >
+          <span />
+          {tool.installed ? "Detected" : "Not detected"}
+        </span>
+      </article>
+    ))}
+  </div>
+</section>
               <div className="section-heading">
                 <div>
                   <h3>
@@ -351,7 +443,7 @@ function App() {
                 </div>
               )}
 
-              <div className="demo-notice">
+                          <div className="demo-notice">
                 <span>ⓘ</span>
                 <p>
                   <strong>Preview mode</strong>
