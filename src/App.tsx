@@ -2,21 +2,28 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
-
+// Development tools detected on the Mac
 type DetectedTool = {
   name: string;
   installed: boolean;
   version: string | null;
 };
 
+// Packages managed by Homebrew
+type HomebrewPackage = {
+  name: string;
+  version: string;
+  package_type: string;
+};
+
+// Temporary package catalog for the dashboard
 type Package = {
   name: string;
   description: string;
   category: string;
-  version: string | null ;
+  version: string | null;
   icon: string;
   installed: boolean;
-  
 };
 
 const initialPackages: Package[] = [
@@ -71,6 +78,7 @@ const initialPackages: Package[] = [
 ];
 
 function App() {
+  // Dashboard state
   const [packages, setPackages] = useState(initialPackages);
   const [activePage, setActivePage] = useState("Dashboard");
   const [search, setSearch] = useState("");
@@ -79,6 +87,13 @@ function App() {
   const [detectedTools, setDetectedTools] = useState<DetectedTool[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  // Homebrew inventory state
+  const [homebrewPackages, setHomebrewPackages] = useState<
+    HomebrewPackage[]
+  >([]);
+  const [isLoadingHomebrew, setIsLoadingHomebrew] = useState(false);
+  const [homebrewError, setHomebrewError] = useState<string | null>(null);
 
   // Scan the Mac for installed development tools
   async function scanSystem() {
@@ -98,31 +113,48 @@ function App() {
     }
   }
 
-  // Run the scan when MacNest opens
+  // Load real Homebrew formulae and casks
+  async function loadHomebrewPackages() {
+    setIsLoadingHomebrew(true);
+    setHomebrewError(null);
+
+    try {
+      const result = await invoke<HomebrewPackage[]>(
+        "get_homebrew_packages"
+      );
+
+      setHomebrewPackages(result);
+    } catch (error) {
+      setHomebrewError(String(error));
+    } finally {
+      setIsLoadingHomebrew(false);
+    }
+  }
+
+  // Load system information when MacNest opens
   useEffect(() => {
     void scanSystem();
+    void loadHomebrewPackages();
   }, []);
 
-  const installedPackages = packages.filter(
-    (pkg) => pkg.installed,
-  );
+  // These counts still refer to the temporary dashboard catalog.
+  const installedPackages = packages.filter((pkg) => pkg.installed);
 
   const visiblePackages = packages.filter((pkg) => {
+    const query = search.toLowerCase();
+
     const matchesSearch =
-      pkg.name.toLowerCase().includes(search.toLowerCase()) ||
-      pkg.description.toLowerCase().includes(search.toLowerCase());
+      pkg.name.toLowerCase().includes(query) ||
+      pkg.description.toLowerCase().includes(query);
 
     if (activePage === "Installed") {
       return pkg.installed && matchesSearch;
     }
 
-    if (activePage === "Explore") {
-      return matchesSearch;
-    }
-
     return matchesSearch;
   });
 
+  // Demo only: this changes the interface, not software on the Mac.
   function togglePackage(name: string) {
     setPackages((current) =>
       current.map((pkg) =>
@@ -132,8 +164,8 @@ function App() {
               installed: !pkg.installed,
               version: !pkg.installed ? "Latest" : "—",
             }
-          : pkg,
-      ),
+          : pkg
+      )
     );
   }
 
@@ -147,9 +179,11 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* Sidebar */}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">M</div>
+
           <div>
             <h1>MacNest</h1>
             <span>Package Manager</span>
@@ -168,6 +202,7 @@ function App() {
               onClick={() => setActivePage(item.name)}
             >
               <span className="nav-icon">{item.icon}</span>
+
               {item.name}
 
               {item.name === "Installed" && (
@@ -192,6 +227,7 @@ function App() {
 
           <div className="system-card">
             <div className="system-dot" />
+
             <div>
               <strong>MacNest is ready</strong>
               <span>macOS · Apple Silicon</span>
@@ -200,6 +236,7 @@ function App() {
 
           <div className="sidebar-footer">
             <span className="footer-avatar">R</span>
+
             <div>
               <strong>Local machine</strong>
               <span>Personal workspace</span>
@@ -208,6 +245,7 @@ function App() {
         </div>
       </aside>
 
+      {/* Main content */}
       <main className="main-content">
         <header className="topbar">
           <div className="breadcrumb">
@@ -219,6 +257,7 @@ function App() {
           <div className="topbar-actions">
             <span className="status-indicator" />
             <span>System ready</span>
+
             <button
               className="settings-button"
               onClick={() => setActivePage("Settings")}
@@ -233,15 +272,20 @@ function App() {
           {activePage === "Settings" ? (
             <div className="page-heading">
               <span className="eyebrow">PREFERENCES</span>
+
               <h2>Settings</h2>
+
               <p>
                 Configure your MacNest package management workspace.
               </p>
+
               <div className="settings-panel">
                 <h3>About MacNest</h3>
+
                 <p>
                   Your personal macOS package management workspace.
                 </p>
+
                 <span className="settings-version">
                   Development build · v0.1.0
                 </span>
@@ -249,8 +293,12 @@ function App() {
             </div>
           ) : (
             <>
+              {/* Page heading */}
               <div className="page-heading">
-                <span className="eyebrow">YOUR DEVELOPMENT WORKSPACE</span>
+                <span className="eyebrow">
+                  YOUR DEVELOPMENT WORKSPACE
+                </span>
+
                 <h2>
                   {activePage === "Dashboard"
                     ? "Everything in its place."
@@ -270,13 +318,16 @@ function App() {
                 </p>
               </div>
 
+              {/* Dashboard statistics */}
               <div className="stats-grid">
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Managed packages</span>
                     <span className="stat-icon purple">▦</span>
                   </div>
+
                   <strong>{installedPackages.length}</strong>
+
                   <span className="stat-caption">
                     Packages in this demo workspace
                   </span>
@@ -287,7 +338,9 @@ function App() {
                     <span>Available packages</span>
                     <span className="stat-icon green">⌘</span>
                   </div>
+
                   <strong>{packages.length}</strong>
+
                   <span className="stat-caption">
                     Sample package catalog
                   </span>
@@ -298,68 +351,161 @@ function App() {
                     <span>Updates available</span>
                     <span className="stat-icon orange">↻</span>
                   </div>
+
                   <strong>—</strong>
+
                   <span className="stat-caption">
                     Update detection not configured
                   </span>
                 </div>
               </div>
-<section className="system-scan">
-  <div className="section-heading">
-    <div>
-      <h3>System Scan</h3>
-      <p>Developer tools detected on this Mac.</p>
-    </div>
 
-    <button
-      className="scan-button"
-      onClick={() => void scanSystem()}
-      disabled={isScanning}
-    >
-      {isScanning ? "Scanning..." : "Scan Again"}
-    </button>
-  </div>
+              {/* System Scan */}
+              <section className="system-scan">
+                <div className="section-heading">
+                  <div>
+                    <h3>System Scan</h3>
+                    <p>
+                      Developer tools detected on this Mac.
+                    </p>
+                  </div>
 
-  {scanError && (
-    <p className="scan-error">
-      Scan failed: {scanError}
-    </p>
-  )}
+                  <button
+                    className="scan-button"
+                    onClick={() => void scanSystem()}
+                    disabled={isScanning}
+                  >
+                    {isScanning ? "Scanning..." : "Scan Again"}
+                  </button>
+                </div>
 
-  {isScanning && detectedTools.length === 0 && (
-    <p className="scan-message">
-      Scanning your Mac...
-    </p>
-  )}
+                {scanError && (
+                  <p className="scan-error">
+                    Scan failed: {scanError}
+                  </p>
+                )}
 
-  {!isScanning &&
-    !scanError &&
-    detectedTools.length === 0 && (
-      <p className="scan-message">
-        No results yet.
-      </p>
-    )}
+                {isScanning && detectedTools.length === 0 && (
+                  <p className="scan-message">
+                    Scanning your Mac...
+                  </p>
+                )}
 
-  <div className="detected-tools">
-    {detectedTools.map((tool) => (
-      <article className="detected-tool" key={tool.name}>
-        <div>
-          <strong>{tool.name}</strong>
-          <p>{tool.version ?? "Not detected"}</p>
-        </div>
+                {!isScanning &&
+                  !scanError &&
+                  detectedTools.length === 0 && (
+                    <p className="scan-message">
+                      No results yet.
+                    </p>
+                  )}
 
-        <span
-          className={`package-status ${
-            tool.installed ? "installed" : ""
-          }`}
-        >
-          <span />
-          {tool.installed ? "Detected" : "Not detected"}
-        </span>
-      </article>
-    ))}
-  </div>
-</section>
+                <div className="detected-tools">
+                  {detectedTools.map((tool) => (
+                    <article
+                      className="detected-tool"
+                      key={tool.name}
+                    >
+                      <div>
+                        <strong>{tool.name}</strong>
+
+                        <p>
+                          {tool.version ?? "Not detected"}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`package-status ${
+                          tool.installed ? "installed" : ""
+                        }`}
+                      >
+                        <span />
+
+                        {tool.installed
+                          ? "Detected"
+                          : "Not detected"}
+                      </span>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              {/* Real Homebrew Inventory */}
+              <section className="system-scan">
+                <div className="section-heading">
+                  <div>
+                    <h3>Homebrew Inventory</h3>
+
+                    <p>
+                      Packages managed by Homebrew on this Mac.
+                    </p>
+                  </div>
+
+                  <button
+                    className="scan-button"
+                    onClick={() => void loadHomebrewPackages()}
+                    disabled={isLoadingHomebrew}
+                  >
+                    {isLoadingHomebrew
+                      ? "Loading..."
+                      : "Refresh Inventory"}
+                  </button>
+                </div>
+
+                {homebrewError && (
+                  <p className="scan-error">
+                    Could not load Homebrew packages: {homebrewError}
+                  </p>
+                )}
+
+                {isLoadingHomebrew &&
+                  homebrewPackages.length === 0 && (
+                    <p className="scan-message">
+                      Loading Homebrew inventory...
+                    </p>
+                  )}
+
+                {!isLoadingHomebrew &&
+                  !homebrewError &&
+                  homebrewPackages.length === 0 && (
+                    <p className="scan-message">
+                      No Homebrew packages found.
+                    </p>
+                  )}
+
+                <div className="detected-tools">
+                  {homebrewPackages.map((pkg) => (
+                    <article
+                      className="detected-tool"
+                      key={`${pkg.package_type}-${pkg.name}`}
+                    >
+                      <div>
+                        <strong>{pkg.name}</strong>
+
+                        <p>
+                          {pkg.package_type} · Version {pkg.version}
+                        </p>
+                      </div>
+
+                      <span className="package-status installed">
+                        <span />
+                        Installed
+                      </span>
+                    </article>
+                  ))}
+                </div>
+
+                {!homebrewError && (
+                  <p className="scan-message">
+                    {isLoadingHomebrew
+                      ? "Refreshing package count..."
+                      : `${homebrewPackages.length} installed Homebrew package${
+                          homebrewPackages.length === 1 ? "" : "s"
+                        }`}
+                  </p>
+                )}
+              </section>
+
+              {/* Existing sample package catalog */}
               <div className="section-heading">
                 <div>
                   <h3>
@@ -373,6 +519,7 @@ function App() {
                             ? "Package catalog"
                             : "Your packages"}
                   </h3>
+
                   <p>
                     {activePage === "Updates"
                       ? "Live update detection will be added later."
@@ -384,19 +531,26 @@ function App() {
 
                 <label className="search-box">
                   <span>⌕</span>
+
                   <input
                     type="search"
                     placeholder="Search packages..."
                     value={search}
-                    onChange={(event) => setSearch(event.target.value)}
+                    onChange={(event) =>
+                      setSearch(event.target.value)
+                    }
                   />
+
                   <kbd>⌘ F</kbd>
                 </label>
               </div>
 
               <div className="package-grid">
                 {visiblePackages.map((pkg) => (
-                  <article className="package-card" key={pkg.name}>
+                  <article
+                    className="package-card"
+                    key={pkg.name}
+                  >
                     <div className="package-card-top">
                       <div className="package-icon">
                         {pkg.icon}
@@ -408,11 +562,15 @@ function App() {
                         }`}
                       >
                         <span />
-                        {pkg.installed ? "Installed" : "Available"}
+
+                        {pkg.installed
+                          ? "Installed"
+                          : "Available"}
                       </span>
                     </div>
 
                     <h4>{pkg.name}</h4>
+
                     <p className="package-description">
                       {pkg.description}
                     </p>
@@ -443,13 +601,16 @@ function App() {
                 </div>
               )}
 
-                          <div className="demo-notice">
+              {/* Explain which functionality is still simulated */}
+              <div className="demo-notice">
                 <span>ⓘ</span>
+
                 <p>
                   <strong>Preview mode</strong>
-                  {" "}Package status is simulated. Install and uninstall
-                  buttons currently update the interface only; they do
-                  not install software on your Mac.
+                  {" "}The System Scan and Homebrew Inventory read
+                  information from your Mac. The package catalog
+                  below is still simulated; its Install and Uninstall
+                  buttons do not modify software on your Mac.
                 </p>
               </div>
             </>
