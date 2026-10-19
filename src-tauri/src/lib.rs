@@ -14,6 +14,11 @@ struct HomebrewPackage {
     version: String,
     package_type: String,
 }
+#[derive(Serialize)]
+struct AvailablePackage {
+    name: String,
+    package_type: String,
+}
 
 fn detect_tool(name: &str, executable: &str, args: &[&str]) -> DetectedTool {
     match Command::new(executable).args(args).output() {
@@ -72,17 +77,13 @@ fn run_homebrew_command(args: &[&str]) -> Result<String, String> {
 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
-
 #[tauri::command]
 fn get_homebrew_packages() -> Result<Vec<HomebrewPackage>, String> {
     let mut packages = Vec::new();
 
     // Read installed Homebrew formulae.
-    let formula_output = run_homebrew_command(&[
-        "list",
-        "--formula",
-        "--versions",
-    ])?;
+    let formula_output =
+        run_homebrew_command(&["list", "--formula", "--versions"])?;
 
     for line in formula_output.lines() {
         let mut parts = line.split_whitespace();
@@ -103,11 +104,8 @@ fn get_homebrew_packages() -> Result<Vec<HomebrewPackage>, String> {
     }
 
     // Read installed Homebrew casks.
-    let cask_output = run_homebrew_command(&[
-        "list",
-        "--cask",
-        "--versions",
-    ])?;
+    let cask_output =
+        run_homebrew_command(&["list", "--cask", "--versions"])?;
 
     for line in cask_output.lines() {
         let mut parts = line.split_whitespace();
@@ -127,7 +125,53 @@ fn get_homebrew_packages() -> Result<Vec<HomebrewPackage>, String> {
         }
     }
 
-    packages.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    packages.sort_by(|a, b| {
+        a.name.to_lowercase().cmp(&b.name.to_lowercase())
+    });
+
+    Ok(packages)
+}
+#[tauri::command]
+fn search_homebrew_packages(query: String) -> Result<Vec<AvailablePackage>, String> {
+    let query = query.trim();
+
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Search Homebrew formulae.
+    let formula_output = run_homebrew_command(&["search", "--formula", query])?;
+
+    let mut packages: Vec<AvailablePackage> = formula_output
+        .lines()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(|name| AvailablePackage {
+            name: name.to_string(),
+            package_type: "Formula".to_string(),
+        })
+        .collect();
+
+    // Search Homebrew casks.
+    let cask_output = run_homebrew_command(&["search", "--cask", query])?;
+
+    for name in cask_output.lines().map(str::trim).filter(|name| !name.is_empty()) {
+        packages.push(AvailablePackage {
+            name: name.to_string(),
+            package_type: "Cask".to_string(),
+        });
+    }
+
+    // Remove duplicate entries.
+    packages.sort_by(|a, b| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+    });
+
+    packages.dedup_by(|a, b| {
+        a.name == b.name && a.package_type == b.package_type
+    });
 
     Ok(packages)
 }
@@ -137,7 +181,8 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             scan_development_tools,
-            get_homebrew_packages
+            get_homebrew_packages,
+            search_homebrew_packages
         ])
         .run(tauri::generate_context!())
         .expect("Failed to run MacNest");
