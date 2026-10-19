@@ -668,4 +668,52 @@ input:focus-visible {
   .detected-tools {
     grid-template-columns: 1fr;
   }
+
+  /* Homebrew inventory search and filters */
+.homebrew-controls {
+  display: flex;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.homebrew-search {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.homebrew-search:focus {
+  border-color: #a78bfa;
+}
+
+.homebrew-filter {
+  min-width: 130px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.homebrew-filter option {
+  background: #19191e;
+  color: #ffffff;
+}
+
+@media (max-width: 600px) {
+  .homebrew-controls {
+    flex-direction: column;
+  }
+
+  .homebrew-filter {
+    width: 100%;
+  }
+}
 }

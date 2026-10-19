@@ -16,7 +16,7 @@ type HomebrewPackage = {
   package_type: string;
 };
 
-// Temporary package catalog for the dashboard
+// Dashboard package catalog
 type Package = {
   name: string;
   description: string;
@@ -24,6 +24,7 @@ type Package = {
   version: string | null;
   icon: string;
   installed: boolean;
+  homebrewName: string;
 };
 
 const initialPackages: Package[] = [
@@ -31,71 +32,101 @@ const initialPackages: Package[] = [
     name: "Node.js",
     description: "JavaScript runtime for building applications.",
     category: "Development",
-    version: "22.x",
+    version: null,
     icon: "⬢",
-    installed: true,
+    installed: false,
+    homebrewName: "node",
   },
   {
     name: "Python",
     description: "A versatile programming language.",
     category: "Languages",
-    version: "3.x",
+    version: null,
     icon: "🐍",
-    installed: true,
+    installed: false,
+    homebrewName: "python",
   },
   {
     name: "Git",
     description: "Distributed version control system.",
     category: "Development",
-    version: "2.x",
+    version: null,
     icon: "⌘",
-    installed: true,
+    installed: false,
+    homebrewName: "git",
   },
   {
     name: "PostgreSQL",
     description: "Powerful open-source relational database.",
     category: "Databases",
-    version: "—",
+    version: null,
     icon: "◉",
     installed: false,
+    homebrewName: "postgresql",
   },
   {
     name: "Rust",
     description: "A language for reliable, efficient software.",
     category: "Languages",
-    version: "—",
+    version: null,
     icon: "⚙",
     installed: false,
+    homebrewName: "rust",
   },
   {
     name: "ripgrep",
     description: "Fast command-line text search utility.",
     category: "Utilities",
-    version: "—",
+    version: null,
     icon: "⌕",
     installed: false,
+    homebrewName: "ripgrep",
   },
 ];
 
+const navigation = [
+  { name: "Dashboard", icon: "▦" },
+  { name: "Explore", icon: "⌕" },
+  { name: "Installed", icon: "▣" },
+  { name: "Updates", icon: "↻" },
+  { name: "Activity", icon: "◷" },
+];
+
 function App() {
-  // Dashboard state
-  const [packages, setPackages] = useState(initialPackages);
-  const [activePage, setActivePage] = useState("Dashboard");
+  const [packages, setPackages] =
+    useState<Package[]>(initialPackages);
+
+  const [activePage, setActivePage] =
+    useState("Dashboard");
+
   const [search, setSearch] = useState("");
 
   // System scanner state
-  const [detectedTools, setDetectedTools] = useState<DetectedTool[]>([]);
+  const [detectedTools, setDetectedTools] =
+    useState<DetectedTool[]>([]);
+
   const [isScanning, setIsScanning] = useState(false);
-  const [scanError, setScanError] = useState<string | null>(null);
+
+  const [scanError, setScanError] =
+    useState<string | null>(null);
 
   // Homebrew inventory state
-  const [homebrewPackages, setHomebrewPackages] = useState<
-    HomebrewPackage[]
-  >([]);
-  const [isLoadingHomebrew, setIsLoadingHomebrew] = useState(false);
-  const [homebrewError, setHomebrewError] = useState<string | null>(null);
+  const [homebrewPackages, setHomebrewPackages] =
+    useState<HomebrewPackage[]>([]);
 
-  // Scan the Mac for installed development tools
+  const [isLoadingHomebrew, setIsLoadingHomebrew] =
+    useState(false);
+
+  const [homebrewError, setHomebrewError] =
+    useState<string | null>(null);
+
+  const [homebrewSearch, setHomebrewSearch] =
+    useState("");
+
+  const [homebrewType, setHomebrewType] =
+    useState("All");
+
+  // Detect installed development tools
   async function scanSystem() {
     setIsScanning(true);
     setScanError(null);
@@ -106,6 +137,29 @@ function App() {
       );
 
       setDetectedTools(result);
+
+      // Update the catalog using detected tool information.
+      setPackages((currentPackages) =>
+        currentPackages.map((pkg) => {
+          const detectedTool = result.find(
+            (tool) =>
+              tool.name.toLowerCase() ===
+              pkg.name.toLowerCase()
+          );
+
+          if (!detectedTool) {
+            return pkg;
+          }
+
+          return {
+            ...pkg,
+            installed: detectedTool.installed,
+            version: detectedTool.installed
+              ? detectedTool.version
+              : null,
+          };
+        })
+      );
     } catch (error) {
       setScanError(String(error));
     } finally {
@@ -113,7 +167,7 @@ function App() {
     }
   }
 
-  // Load real Homebrew formulae and casks
+  // Load Homebrew formulae and casks
   async function loadHomebrewPackages() {
     setIsLoadingHomebrew(true);
     setHomebrewError(null);
@@ -124,6 +178,39 @@ function App() {
       );
 
       setHomebrewPackages(result);
+
+      // Match Homebrew formulae against catalog entries.
+      setPackages((currentPackages) =>
+        currentPackages.map((pkg) => {
+          const homebrewPackage = result.find(
+            (item) =>
+              item.package_type === "Formula" &&
+              item.name.toLowerCase() ===
+                pkg.homebrewName.toLowerCase()
+          );
+
+          const detectedTool = detectedTools.find(
+            (tool) =>
+              tool.name.toLowerCase() ===
+              pkg.name.toLowerCase()
+          );
+
+          const isInstalled =
+            Boolean(homebrewPackage) ||
+            Boolean(detectedTool?.installed);
+
+          const version =
+            homebrewPackage?.version ??
+            detectedTool?.version ??
+            null;
+
+          return {
+            ...pkg,
+            installed: isInstalled,
+            version,
+          };
+        })
+      );
     } catch (error) {
       setHomebrewError(String(error));
     } finally {
@@ -131,17 +218,34 @@ function App() {
     }
   }
 
-  // Load system information when MacNest opens
+  // Load system information when the application opens.
   useEffect(() => {
     void scanSystem();
     void loadHomebrewPackages();
   }, []);
 
-  // These counts still refer to the temporary dashboard catalog.
-  const installedPackages = packages.filter((pkg) => pkg.installed);
+  // Homebrew search and type filters
+  const filteredHomebrewPackages =
+    homebrewPackages.filter((pkg) => {
+      const matchesSearch = pkg.name
+        .toLowerCase()
+        .includes(homebrewSearch.toLowerCase().trim());
 
+      const matchesType =
+        homebrewType === "All" ||
+        pkg.package_type === homebrewType;
+
+      return matchesSearch && matchesType;
+    });
+
+  // Catalog statistics
+  const installedPackages = packages.filter(
+    (pkg) => pkg.installed
+  );
+
+  // Catalog search
   const visiblePackages = packages.filter((pkg) => {
-    const query = search.toLowerCase();
+    const query = search.toLowerCase().trim();
 
     const matchesSearch =
       pkg.name.toLowerCase().includes(query) ||
@@ -154,28 +258,30 @@ function App() {
     return matchesSearch;
   });
 
-  // Demo only: this changes the interface, not software on the Mac.
-  function togglePackage(name: string) {
-    setPackages((current) =>
-      current.map((pkg) =>
-        pkg.name === name
-          ? {
-              ...pkg,
-              installed: !pkg.installed,
-              version: !pkg.installed ? "Latest" : "—",
-            }
-          : pkg
-      )
-    );
-  }
+  // Page headings
+  const pageTitle =
+    activePage === "Dashboard"
+      ? "Everything in its place."
+      : activePage === "Explore"
+        ? "Explore packages."
+        : activePage === "Installed"
+          ? "Your installed packages."
+          : activePage === "Updates"
+            ? "Package updates."
+            : activePage === "Activity"
+              ? "Recent activity."
+              : activePage;
 
-  const navigation = [
-    { name: "Dashboard", icon: "▦" },
-    { name: "Explore", icon: "⌕" },
-    { name: "Installed", icon: "▣" },
-    { name: "Updates", icon: "↻" },
-    { name: "Activity", icon: "◷" },
-  ];
+  const catalogTitle =
+    activePage === "Installed"
+      ? "Installed packages"
+      : activePage === "Updates"
+        ? "Update manager"
+        : activePage === "Activity"
+          ? "Activity overview"
+          : activePage === "Explore"
+            ? "Package catalog"
+            : "Your packages";
 
   return (
     <div className="app-shell">
@@ -201,7 +307,9 @@ function App() {
               }`}
               onClick={() => setActivePage(item.name)}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon">
+                {item.icon}
+              </span>
 
               {item.name}
 
@@ -276,14 +384,16 @@ function App() {
               <h2>Settings</h2>
 
               <p>
-                Configure your MacNest package management workspace.
+                Configure your MacNest package management
+                workspace.
               </p>
 
               <div className="settings-panel">
                 <h3>About MacNest</h3>
 
                 <p>
-                  Your personal macOS package management workspace.
+                  Your personal macOS package management
+                  workspace.
                 </p>
 
                 <span className="settings-version">
@@ -299,19 +409,7 @@ function App() {
                   YOUR DEVELOPMENT WORKSPACE
                 </span>
 
-                <h2>
-                  {activePage === "Dashboard"
-                    ? "Everything in its place."
-                    : activePage === "Explore"
-                      ? "Explore packages."
-                      : activePage === "Installed"
-                        ? "Your installed packages."
-                        : activePage === "Updates"
-                          ? "Package updates."
-                          : activePage === "Activity"
-                            ? "Recent activity."
-                            : activePage}
-                </h2>
+                <h2>{pageTitle}</h2>
 
                 <p>
                   Manage your developer tools from one place.
@@ -322,34 +420,46 @@ function App() {
               <div className="stats-grid">
                 <div className="stat-card">
                   <div className="stat-top">
-                    <span>Managed packages</span>
-                    <span className="stat-icon purple">▦</span>
+                    <span>Detected catalog packages</span>
+                    <span className="stat-icon purple">
+                      ▦
+                    </span>
                   </div>
 
-                  <strong>{installedPackages.length}</strong>
+                  <strong>
+                    {installedPackages.length}
+                  </strong>
 
                   <span className="stat-caption">
-                    Packages in this demo workspace
+                    Installed tools matched in the catalog
                   </span>
                 </div>
 
                 <div className="stat-card">
                   <div className="stat-top">
-                    <span>Available packages</span>
-                    <span className="stat-icon green">⌘</span>
+                    <span>Homebrew packages</span>
+                    <span className="stat-icon green">
+                      ⌘
+                    </span>
                   </div>
 
-                  <strong>{packages.length}</strong>
+                  <strong>
+                    {homebrewPackages.length}
+                  </strong>
 
                   <span className="stat-caption">
-                    Sample package catalog
+                    {isLoadingHomebrew
+                      ? "Loading inventory..."
+                      : "Formulae and casks detected"}
                   </span>
                 </div>
 
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Updates available</span>
-                    <span className="stat-icon orange">↻</span>
+                    <span className="stat-icon orange">
+                      ↻
+                    </span>
                   </div>
 
                   <strong>—</strong>
@@ -365,6 +475,7 @@ function App() {
                 <div className="section-heading">
                   <div>
                     <h3>System Scan</h3>
+
                     <p>
                       Developer tools detected on this Mac.
                     </p>
@@ -375,7 +486,9 @@ function App() {
                     onClick={() => void scanSystem()}
                     disabled={isScanning}
                   >
-                    {isScanning ? "Scanning..." : "Scan Again"}
+                    {isScanning
+                      ? "Scanning..."
+                      : "Scan Again"}
                   </button>
                 </div>
 
@@ -385,11 +498,12 @@ function App() {
                   </p>
                 )}
 
-                {isScanning && detectedTools.length === 0 && (
-                  <p className="scan-message">
-                    Scanning your Mac...
-                  </p>
-                )}
+                {isScanning &&
+                  detectedTools.length === 0 && (
+                    <p className="scan-message">
+                      Scanning your Mac...
+                    </p>
+                  )}
 
                 {!isScanning &&
                   !scanError &&
@@ -429,7 +543,7 @@ function App() {
                 </div>
               </section>
 
-              {/* Real Homebrew Inventory */}
+              {/* Homebrew Inventory */}
               <section className="system-scan">
                 <div className="section-heading">
                   <div>
@@ -442,7 +556,9 @@ function App() {
 
                   <button
                     className="scan-button"
-                    onClick={() => void loadHomebrewPackages()}
+                    onClick={() =>
+                      void loadHomebrewPackages()
+                    }
                     disabled={isLoadingHomebrew}
                   >
                     {isLoadingHomebrew
@@ -453,9 +569,37 @@ function App() {
 
                 {homebrewError && (
                   <p className="scan-error">
-                    Could not load Homebrew packages: {homebrewError}
+                    Could not load Homebrew packages:{" "}
+                    {homebrewError}
                   </p>
                 )}
+
+                {/* Search and type filters */}
+                <div className="homebrew-controls">
+                  <input
+                    type="search"
+                    className="homebrew-search"
+                    placeholder="Search installed packages..."
+                    value={homebrewSearch}
+                    onChange={(event) =>
+                      setHomebrewSearch(event.target.value)
+                    }
+                    aria-label="Search Homebrew packages"
+                  />
+
+                  <select
+                    className="homebrew-filter"
+                    value={homebrewType}
+                    onChange={(event) =>
+                      setHomebrewType(event.target.value)
+                    }
+                    aria-label="Filter Homebrew packages by type"
+                  >
+                    <option value="All">All types</option>
+                    <option value="Formula">Formula</option>
+                    <option value="Cask">Cask</option>
+                  </select>
+                </div>
 
                 {isLoadingHomebrew &&
                   homebrewPackages.length === 0 && (
@@ -472,8 +616,9 @@ function App() {
                     </p>
                   )}
 
+                {/* Filtered Homebrew package list */}
                 <div className="detected-tools">
-                  {homebrewPackages.map((pkg) => (
+                  {filteredHomebrewPackages.map((pkg) => (
                     <article
                       className="detected-tool"
                       key={`${pkg.package_type}-${pkg.name}`}
@@ -482,7 +627,8 @@ function App() {
                         <strong>{pkg.name}</strong>
 
                         <p>
-                          {pkg.package_type} · Version {pkg.version}
+                          {pkg.package_type} · Version{" "}
+                          {pkg.version}
                         </p>
                       </div>
 
@@ -494,38 +640,43 @@ function App() {
                   ))}
                 </div>
 
+                {!isLoadingHomebrew &&
+                  !homebrewError &&
+                  filteredHomebrewPackages.length === 0 &&
+                  homebrewPackages.length > 0 && (
+                    <div className="empty-state">
+                      <span>⌕</span>
+
+                      <h3>No packages found</h3>
+
+                      <p>
+                        Try another name or select a different
+                        package type.
+                      </p>
+                    </div>
+                  )}
+
                 {!homebrewError && (
                   <p className="scan-message">
-                    {isLoadingHomebrew
-                      ? "Refreshing package count..."
-                      : `${homebrewPackages.length} installed Homebrew package${
-                          homebrewPackages.length === 1 ? "" : "s"
-                        }`}
+                    Showing {filteredHomebrewPackages.length} of{" "}
+                    {homebrewPackages.length} Homebrew packages
                   </p>
                 )}
               </section>
 
-              {/* Existing sample package catalog */}
+              {/* Package catalog */}
               <div className="section-heading">
                 <div>
-                  <h3>
-                    {activePage === "Installed"
-                      ? "Installed packages"
-                      : activePage === "Updates"
-                        ? "Update manager"
-                        : activePage === "Activity"
-                          ? "Activity overview"
-                          : activePage === "Explore"
-                            ? "Package catalog"
-                            : "Your packages"}
-                  </h3>
+                  <h3>{catalogTitle}</h3>
 
                   <p>
                     {activePage === "Updates"
                       ? "Live update detection will be added later."
                       : activePage === "Activity"
                         ? "Installation history will be connected later."
-                        : "Explore the sample catalog and interface."}
+                        : activePage === "Installed"
+                          ? "Catalog tools detected as installed."
+                          : "Explore the sample catalog and interface."}
                   </p>
                 </div>
 
@@ -577,16 +728,32 @@ function App() {
 
                     <div className="package-meta">
                       <span>{pkg.category}</span>
-                      <span>v{pkg.version}</span>
+
+                      <span>
+                        {pkg.version
+                          ? `v${pkg.version}`
+                          : "Version unknown"}
+                      </span>
                     </div>
 
                     <button
                       className={`package-action ${
-                        pkg.installed ? "secondary-action" : ""
+                        pkg.installed
+                          ? "secondary-action"
+                          : ""
                       }`}
-                      onClick={() => togglePackage(pkg.name)}
+                      onClick={() => {
+                        window.alert(
+                          "Package management is not enabled yet. " +
+                            "This preview does not install or " +
+                            "uninstall software."
+                        );
+                      }}
                     >
-                      {pkg.installed ? "Uninstall" : "Install"}
+                      {pkg.installed
+                        ? "Uninstall"
+                        : "Install"}
+
                       <span>→</span>
                     </button>
                   </article>
@@ -596,21 +763,23 @@ function App() {
               {visiblePackages.length === 0 && (
                 <div className="empty-state">
                   <span>⌕</span>
+
                   <h3>No packages found</h3>
+
                   <p>Try a different search term.</p>
                 </div>
               )}
 
-              {/* Explain which functionality is still simulated */}
+              {/* Preview notice */}
               <div className="demo-notice">
                 <span>ⓘ</span>
 
                 <p>
                   <strong>Preview mode</strong>
-                  {" "}The System Scan and Homebrew Inventory read
-                  information from your Mac. The package catalog
-                  below is still simulated; its Install and Uninstall
-                  buttons do not modify software on your Mac.
+                  {" "}System Scan and Homebrew Inventory read
+                  information from your Mac. The catalog is
+                  limited to sample entries, and its Install and
+                  Uninstall buttons do not modify your software.
                 </p>
               </div>
             </>
