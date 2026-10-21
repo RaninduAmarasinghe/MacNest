@@ -132,6 +132,65 @@ fn get_homebrew_packages() -> Result<Vec<HomebrewPackage>, String> {
     Ok(packages)
 }
 #[tauri::command]
+fn install_homebrew_package(
+    name: String,
+    package_type: String,
+) -> Result<String, String> {
+    // Validate the package type.
+    if package_type != "Formula" && package_type != "Cask" {
+        return Err("Invalid package type.".to_string());
+    }
+
+    // Validate the package name.
+    if name.is_empty()
+        || name.len() > 100
+        || !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-_@./".contains(c))
+        || name.starts_with('-')
+        || name.contains("..")
+    {
+        return Err("Invalid Homebrew package name.".to_string());
+    }
+
+    // Build the Homebrew installation arguments.
+    let args = if package_type == "Cask" {
+        vec!["install", "--cask", name.as_str()]
+    } else {
+        vec!["install", "--formula", name.as_str()]
+    };
+
+    // Execute Homebrew directly without using a shell.
+    let output = Command::new("brew")
+        .args(&args)
+        .output()
+        .map_err(|error| {
+            format!("Could not execute Homebrew: {error}")
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr)
+            .trim()
+            .to_string();
+
+        let stdout = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .to_string();
+
+        let message = if !stderr.is_empty() {
+            stderr
+        } else if !stdout.is_empty() {
+            stdout
+        } else {
+            "Homebrew installation failed.".to_string()
+        };
+
+        return Err(message);
+    }
+
+    Ok(format!("Successfully installed {name}."))
+}
+#[tauri::command]
 fn search_homebrew_packages(query: String) -> Result<Vec<AvailablePackage>, String> {
     let query = query.trim();
 
@@ -179,11 +238,12 @@ fn search_homebrew_packages(query: String) -> Result<Vec<AvailablePackage>, Stri
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![
-            scan_development_tools,
-            get_homebrew_packages,
-            search_homebrew_packages
-        ])
+      .invoke_handler(tauri::generate_handler![
+    scan_development_tools,
+    get_homebrew_packages,
+    search_homebrew_packages,
+    install_homebrew_package
+])
         .run(tauri::generate_context!())
         .expect("Failed to run MacNest");
 }

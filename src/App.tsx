@@ -117,9 +117,7 @@ function App() {
 
       // Avoid displaying results for an older search.
       // The input may have changed while Homebrew was running.
-      setAvailablePackages((currentResults) => {
-        return result;
-      });
+      setAvailablePackages(result);
     } catch (error) {
       setCatalogError(String(error));
       setAvailablePackages([]);
