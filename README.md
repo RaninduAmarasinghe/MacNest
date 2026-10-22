@@ -18,28 +18,28 @@ Instead of managing everything through terminal commands, MacNest aims to provid
 
 🚀 Features
 
-* 🏠 Dashboard — Access your development environment and package management overview.
-* 🔍 Explore Packages — Search the Homebrew catalog to discover available formulae and casks.
-* 📦 Installed Packages — View and manage installed development tools.
-* ⬇️ Download Progress — Monitor package installation progress.
-* 🔄 Updates — Review available package updates and manage your update workflow.
-* 📋 Activity Tracking — Review package management activities.
-* 🖥️ System Scan — Discover development tools available on your Mac.
-* 🎨 Native macOS-Inspired UI — Clean layouts, familiar controls, and system appearance support.
-* 🌗 Light and Dark Appearance — Adapt the interface to your preferred system appearance.
-* ⚡ Desktop Performance — Use a lightweight desktop architecture powered by Tauri and Rust.
+- 🏠 Dashboard — Access your development environment and package management overview.
+- 🔍 Explore Packages — Search the Homebrew catalog to discover available formulae and casks.
+- 📦 Installed Packages — View and manage installed development tools.
+- ⬇️ Download Progress — Monitor package installation progress.
+- 🔄 Updates — Review available package updates and manage your update workflow.
+- 📋 Activity Tracking — Review package management activities.
+- 🖥️ System Scan — Discover development tools available on your Mac.
+- 🎨 Native macOS-Inspired UI — Clean layouts, familiar controls, and system appearance support.
+- 🌗 Light and Dark Appearance — Adapt the interface to your preferred system appearance.
+- ⚡ Desktop Performance — Use a lightweight desktop architecture powered by Tauri and Rust.
 
 Note: Available features depend on the current implementation. Package installation, update detection, progress reporting, and system scanning may depend on Homebrew and your local environment.
 
 🛠️ Tech Stack
 
-Technology	Purpose
-Tauri 2	Desktop application framework
-React	User interface
-TypeScript	Type-safe frontend development
-Vite	Frontend development and production builds
-Rust	Native backend functionality
-Homebrew	macOS package management
+Technology Purpose
+Tauri 2 Desktop application framework
+React User interface
+TypeScript Type-safe frontend development
+Vite Frontend development and production builds
+Rust Native backend functionality
+Homebrew macOS package management
 
 📸 Screenshots
 
@@ -49,34 +49,37 @@ For example:
 
 docs/
 └── screenshots/
-    ├── dashboard.png
-    ├── explore.png
-    ├── installed.png
-    └── settings.png
+├── dashboard.png
+├── explore.png
+├── installed.png
+└── settings.png
 
 Once you add these images to your repository, display them in this section:
 
 ### Dashboard
+
 ![MacNest Dashboard](docs/screenshots/dashboard.png)
+
 ### Explore Packages
+
 ![MacNest Explore](docs/screenshots/explore.png)
 
 📋 Requirements
 
 Before running MacNest from source, make sure you have:
 
-* macOS
-* Node.js and npm
-* Rust and Cargo
-* Homebrew
-* The development prerequisites required by Tauri for macOS
+- macOS
+- Node.js and npm
+- Rust and Cargo
+- Homebrew
+- The development prerequisites required by Tauri for macOS
 
 Useful installation resources:
 
-* Node.js
-* Rust
-* Homebrew
-* Tauri prerequisites
+- Node.js
+- Rust
+- Homebrew
+- Tauri prerequisites
 
 📥 Installation
 
@@ -97,10 +100,10 @@ Prerequisites
 
 Before running MacNest, install:
 
-* Node.js and npm
-* Rust and Cargo
-* Homebrew
-* Tauri prerequisites for macOS
+- Node.js and npm
+- Rust and Cargo
+- Homebrew
+- Tauri prerequisites for macOS
 
 Clone the Repository
 
@@ -135,31 +138,35 @@ MacNest uses a desktop architecture powered by Tauri, React, TypeScript, and Rus
 
 Architecture
 
-Component	Technology	Responsibility
-Frontend	React	Renders the user interface
-Language	TypeScript	Provides type safety
-Build Tool	Vite	Builds and serves the frontend
-Desktop Framework	Tauri 2	Connects the frontend to native functionality
-Backend	Rust	Handles native application operations
-Package Manager	Homebrew	Provides package discovery and management
+MacNest combines a modern React frontend with a native Rust backend using Tauri 2.
+
+Component Technology Responsibility
+Frontend React Renders the application interface
+Language TypeScript Provides type safety
+Build Tool Vite Builds and serves the frontend
+Desktop Framework Tauri 2 Connects the frontend to native functionality
+Backend Rust Handles native application operations
+Package Manager Homebrew Provides package discovery and management
 
 The frontend communicates with the native backend through Tauri commands.
 
 Project Structure
 
 MacNest/
-├── public/                 # Static assets
-├── src/                    # React frontend
-│   ├── App.tsx             # Main application interface
-│   └── ...
-├── src-tauri/              # Native Tauri application
-│   ├── icons/              # Application icons
-│   ├── src/                # Rust backend
-│   ├── Cargo.toml          # Rust dependencies
-│   └── tauri.conf.json     # Tauri configuration
-├── package.json            # npm scripts and dependencies
-├── tsconfig.json           # TypeScript configuration
+├── public/ # Static assets
+├── src/ # React frontend
+│ ├── App.tsx # Main application interface
+│ └── ...
+├── src-tauri/ # Native Tauri application
+│ ├── icons/ # Application icons
+│ ├── src/ # Rust backend
+│ ├── Cargo.toml # Rust dependencies
+│ └── tauri.conf.json # Tauri configuration
+├── package.json # npm scripts and dependencies
+├── tsconfig.json # TypeScript configuration
 └── README.md
+
+Note: This is an illustrative structure. Some filenames or directories may differ in the actual repository.
 
 The structure above is illustrative. Individual filenames may differ in the current repository.
 
@@ -169,15 +176,15 @@ The structure above is illustrative. Individual filenames may differ in the curr
 
 Potential future improvements include:
 
-* Publish the first public release.
-* Improve package search and filtering.
-* Add package details and dependency information.
-* Improve installation and uninstallation feedback.
-* Enhance download progress reporting.
-* Improve update management.
-* Add package categories and favorites.
-* Add application signing and notarization.
-* Expand documentation and automated testing.
+- Publish the first public release.
+- Improve package search and filtering.
+- Add package details and dependency information.
+- Improve installation and uninstallation feedback.
+- Enhance download progress reporting.
+- Improve update management.
+- Add package categories and favorites.
+- Add application signing and notarization.
+- Expand documentation and automated testing.
 
 Roadmap items may change as development progresses.
 
@@ -226,7 +233,7 @@ Before distributing the project under this license, add a LICENSE file containin
 
 Ranindu Amarasinghe
 
-* GitHub: @RaninduAmarasinghe
+- GitHub: @RaninduAmarasinghe
 
 ⸻
 
