@@ -80,74 +80,90 @@ Useful installation resources:
 
 📥 Installation
 
-Option 1: Download the application
+Option 1: Download MacNest
 
-Download the latest macOS installer from the repository’s Releases page.
+Download the latest available macOS installer from GitHub Releases.
 
 1. Download the .dmg file compatible with your Mac.
 2. Open the downloaded disk image.
-3. Follow the installation instructions provided.
-4. Launch MacNest from Applications.
+3. Follow the installation instructions.
+4. Launch MacNest from your Applications folder.
 
-Current development build: The available aarch64 package targets Apple Silicon Macs. Public distribution may require code signing and notarization for a smoother installation experience.
+Note: The current development build targets Apple Silicon Macs (aarch64). Public distribution may require Apple Developer ID signing and notarization.
 
-Releases will appear here once a release has been published.
+Option 2: Run from Source
 
-Option 2: Run from source
+Prerequisites
 
-Clone the repository:
+Before running MacNest, install:
+
+* Node.js and npm
+* Rust and Cargo
+* Homebrew
+* Tauri prerequisites for macOS
+
+Clone the Repository
 
 git clone https://github.com/RaninduAmarasinghe/MacNest.git
-
-Navigate into the project:
-
 cd MacNest
 
-Install frontend dependencies:
+Install Dependencies
 
 npm install
 
-Start the application in development mode:
+Start Development Mode
 
 npm run tauri dev
 
-Build for production
+This starts the frontend development server and launches the MacNest desktop application.
 
-Create a production build:
+Build for Production
 
 npm run tauri build
 
-Tauri generates the application bundles under:
+The generated application and installer bundles are available under:
 
 src-tauri/target/release/bundle/
 
-The exact output depends on your build configuration and target platform.
+The exact output depends on the build configuration and target platform.
+
+⸻
 
 🧑‍💻 Development
 
-MacNest uses a Tauri architecture:
+MacNest uses a desktop architecture powered by Tauri, React, TypeScript, and Rust.
 
-* Frontend: React and TypeScript render the application interface.
-* Backend: Rust handles native application functionality.
-* Package management: Homebrew provides the underlying package catalog and installation capabilities.
+Architecture
+
+Component	Technology	Responsibility
+Frontend	React	Renders the user interface
+Language	TypeScript	Provides type safety
+Build Tool	Vite	Builds and serves the frontend
+Desktop Framework	Tauri 2	Connects the frontend to native functionality
+Backend	Rust	Handles native application operations
+Package Manager	Homebrew	Provides package discovery and management
 
 The frontend communicates with the native backend through Tauri commands.
 
-Project structure
+Project Structure
 
 MacNest/
+├── public/                 # Static assets
 ├── src/                    # React frontend
-├── public/                 # Static frontend assets
-├── src-tauri/
-│   ├── src/                # Rust backend
+│   ├── App.tsx             # Main application interface
+│   └── ...
+├── src-tauri/              # Native Tauri application
 │   ├── icons/              # Application icons
+│   ├── src/                # Rust backend
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration
 ├── package.json            # npm scripts and dependencies
 ├── tsconfig.json           # TypeScript configuration
 └── README.md
 
-Your actual project may contain additional files and directories.
+The structure above is illustrative. Individual filenames may differ in the current repository.
+
+⸻
 
 🗺️ Roadmap
 
