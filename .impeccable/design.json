@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-22T00:00:00Z",
+  "title": "Design System: MacNest",
+  "extensions": {
+    "colorMeta": {
+      "canvas": { "role": "neutral", "displayName": "System canvas", "canonical": "#f5f5f7" },
+      "sidebar": { "role": "neutral", "displayName": "Sidebar gray", "canonical": "#f1f1f4" },
+      "surface": { "role": "neutral", "displayName": "Grouped surface", "canonical": "#fff" },
+      "surface-soft": { "role": "neutral", "displayName": "Soft surface", "canonical": "#f5f5f7" },
+      "border": { "role": "neutral", "displayName": "Separator", "canonical": "#e3e3e8" },
+      "text": { "role": "neutral", "displayName": "Primary label", "canonical": "#1d1d1f" },
+      "muted": { "role": "neutral", "displayName": "Secondary label", "canonical": "#6e6e73" },
+      "accent": { "role": "primary", "displayName": "System blue", "canonical": "#007aff" },
+      "success": { "role": "tertiary", "displayName": "Success green", "canonical": "#248a3d" },
+      "danger": { "role": "secondary", "displayName": "Alert red", "canonical": "#d70015" }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "System UI", "purpose": "Compact interface and supporting text." },
+      "title": { "displayName": "Page title", "purpose": "Page heading." },
+      "label": { "displayName": "Workspace label", "purpose": "Small uppercase rail section label." }
+    },
+    "shadows": [
+      { "name": "grouped-surface", "value": "0 1px 2px rgb(0 0 0 / 4%), 0 4px 14px rgb(0 0 0 / 3%)", "purpose": "Light separation for grouped macOS-style surfaces." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "130ms ease", "purpose": "Native-feeling control and selection transitions." },
+      { "name": "reduced-motion", "value": "prefers-reduced-motion: reduce; transition-duration: 0.01ms", "purpose": "Minimize transition and progress animation for reduced-motion preference." }
+    ],
+    "breakpoints": [
+      { "name": "rail-compact", "value": "900px" },
+      { "name": "rail-icon-only", "value": "680px" }
+    ]
+  },
+  "components": []
+}

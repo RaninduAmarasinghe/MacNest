@@ -52,12 +52,55 @@ function loadActivityRecords(): ActivityRecord[] {
 }
 
 const navigation = [
-  { name: "Dashboard" },
-  { name: "Explore" },
-  { name: "Installed" },
-  { name: "Updates" },
-  { name: "Activity" },
+  { name: "Dashboard", icon: "overview" },
+  { name: "Explore", icon: "search" },
+  { name: "Installed", icon: "box" },
+  { name: "Updates", icon: "refresh" },
+  { name: "Activity", icon: "activity" },
 ];
+
+function SidebarIcon({ name }: { name: string }) {
+  const shared = {
+    width: 17,
+    height: 17,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true as const,
+  };
+
+  switch (name) {
+    case "overview":
+      return <svg {...shared}><rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="7" rx="2" /><rect x="3.5" y="13.5" width="7" height="7" rx="2" /><rect x="13.5" y="13.5" width="7" height="7" rx="2" /></svg>;
+    case "search":
+      return <svg {...shared}><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.2 4.2" /></svg>;
+    case "box":
+      return <svg {...shared}><path d="m12 3.7 8.2 4.1v8.4L12 20.3l-8.2-4.1V7.8L12 3.7Z" /><path d="m3.8 7.8 8.2 4.1 8.2-4.1M12 12v8.3" /></svg>;
+    case "refresh":
+      return <svg {...shared}><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 9a6.5 6.5 0 0 1 11-2L20 12M4 12l3 5a6.5 6.5 0 0 0 11-2" /></svg>;
+    case "activity":
+      return <svg {...shared}><path d="M3 12h4l2.2-6 4.1 12 2.2-6H21" /></svg>;
+    case "settings":
+      return <svg {...shared}><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1 1.1 1.9-1.8 3.1-2.2-.4a8 8 0 0 1-1.6.9l-1.1 1.8h-3.6l-1.1-1.8a8 8 0 0 1-1.6-.9l-2.2.4-1.8-3.1 1.1-1.9a7 7 0 0 1 0-1.9l-1.1-1.9 1.8-3.1 2.2.4a8 8 0 0 1 1.6-.9l1.1-1.8h3.6l1.1 1.8a8 8 0 0 1 1.6.9l2.2-.4 1.8 3.1-1.1 1.9a7 7 0 0 1 0 1.8Z" transform="translate(0 -1) scale(.92)" /></svg>;
+    case "brew":
+      return <svg {...shared}><path d="M7 6h10l-.7 14H7.7L7 6Z" /><path d="M6 6h12M9 3.5h6M9 10h6M9 13h6" /></svg>;
+    case "app":
+      return <svg {...shared}><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M4 8h16M7 6h.01M10 6h.01" /></svg>;
+    case "terminal":
+      return <svg {...shared}><rect x="3.5" y="4" width="17" height="16" rx="3" /><path d="m7 9 3 3-3 3m6 0h4" /></svg>;
+    case "info":
+      return <svg {...shared}><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8h.01" /></svg>;
+    case "check":
+      return <svg {...shared}><path d="m5 12.5 4.2 4.2L19 7" /></svg>;
+    case "arrow":
+      return <svg {...shared}><path d="M5 12h14m-6-6 6 6-6 6" /></svg>;
+    default:
+      return null;
+  }
+}
 
 function App() {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -71,7 +114,7 @@ function App() {
   const [homebrewPackages, setHomebrewPackages] = useState<
     HomebrewPackage[]
   >([]);
-  const [isLoadingHomebrew, setIsLoadingHomebrew] = useState(false);
+  const [isLoadingHomebrew, setIsLoadingHomebrew] = useState(true);
   const [homebrewError, setHomebrewError] = useState<string | null>(null);
 
   const [homebrewSearch, setHomebrewSearch] = useState("");
@@ -476,6 +519,11 @@ function App() {
   const detectedCount = detectedTools.filter(
     (tool) => tool.installed
   ).length;
+  const homebrewStatus = homebrewError
+    ? "Unavailable"
+    : isLoadingHomebrew
+      ? "Checking"
+      : "Ready";
 
   // Page headings.
   const pageTitle =
@@ -519,11 +567,17 @@ function App() {
               aria-label={item.name}
               onClick={() => setActivePage(item.name)}
             >
+              <SidebarIcon name={item.icon} />
               {item.name}
 
               {item.name === "Installed" && (
                 <span className="nav-count">
                   {homebrewPackages.length}
+                </span>
+              )}
+              {item.name === "Updates" && outdatedPackages.length > 0 && (
+                <span className="nav-count update-count">
+                  {outdatedPackages.length}
                 </span>
               )}
             </button>
@@ -537,24 +591,32 @@ function App() {
             }`}
             onClick={() => setActivePage("Settings")}
           >
+            <SidebarIcon name="settings" />
             Settings
           </button>
 
-          <div className="system-card">
-            <div className="system-dot" />
-
-            <div>
-              <strong>MacNest is ready</strong>
-              <span>macOS · Local machine</span>
+          <div className="environment-card" role="status">
+            <div className="environment-topline">
+              <span className="environment-icon"><SidebarIcon name="brew" /></span>
+              <div className="environment-title">
+                <strong>Homebrew</strong>
+                <span>Package source</span>
+              </div>
+              <span className={`environment-state ${homebrewError ? "offline" : isLoadingHomebrew ? "checking" : ""}`}>
+                <span className="environment-dot" aria-hidden="true" />
+                {homebrewStatus}
+              </span>
             </div>
-          </div>
-
-          <div className="sidebar-footer">
-            <span className="footer-avatar">R</span>
-
-            <div>
-              <strong>Local machine</strong>
-              <span>Personal workspace</span>
+            <div className="environment-divider" />
+            <div className="environment-details">
+              <span className="environment-machine">This Mac</span>
+              <span className="environment-package-count">
+                {homebrewError
+                  ? "Homebrew unavailable"
+                  : isLoadingHomebrew
+                    ? "Scanning packages…"
+                    : `${homebrewPackages.length} packages`}
+              </span>
             </div>
           </div>
         </div>
@@ -571,8 +633,8 @@ function App() {
           </div>
 
           <div className="topbar-actions">
-            <span className="status-indicator" />
-            <span>System ready</span>
+            <span className={`status-indicator ${homebrewError ? "offline" : isLoadingHomebrew ? "checking" : ""}`} aria-hidden="true" />
+            <span>{homebrewError ? "Homebrew unavailable" : isLoadingHomebrew ? "Checking Homebrew" : "Homebrew ready"}</span>
 
           </div>
         </header>
@@ -675,11 +737,47 @@ function App() {
               {/* DASHBOARD */}
               {activePage === "Dashboard" && (
                 <>
+                  <section className="dashboard-hero" aria-labelledby="dashboard-hero-title">
+                    <div className="dashboard-hero-copy">
+                      <span className="hero-overline">
+                        <span className={`hero-status-dot ${homebrewError ? "offline" : isLoadingHomebrew ? "checking" : ""}`} />
+                        YOUR MAC · {homebrewError ? "SOURCE UNAVAILABLE" : isLoadingHomebrew ? "CHECKING HOMEBREW" : "HOMEBREW CONNECTED"}
+                      </span>
+                      <h3 id="dashboard-hero-title">A clearer view of your<br className="hero-desktop-break" /> dev setup.</h3>
+                      <p>See what’s installed, spot updates, and keep your tools ready to build.</p>
+                      <div className="hero-actions">
+                        <button className="hero-primary" onClick={() => void scanSystem()} disabled={isScanning}>
+                          <SidebarIcon name="refresh" />
+                          {isScanning ? "Scanning tools…" : "Scan development tools"}
+                        </button>
+                        <button className="hero-secondary" onClick={() => setActivePage("Updates")}>
+                          Check updates <SidebarIcon name="arrow" />
+                        </button>
+                      </div>
+                      <div className="hero-footnote">
+                        <span className="hero-footnote-mark">⌘</span>
+                        <span>Local to this Mac</span>
+                        <span className="hero-footnote-divider" />
+                        <span>Powered by Homebrew</span>
+                      </div>
+                    </div>
+                    <div className="hero-visual" aria-hidden="true">
+                      <div className="hero-orbit orbit-one" />
+                      <div className="hero-orbit orbit-two" />
+                      <div className="hero-orbit orbit-three" />
+                      <div className="hero-core"><span className="hero-core-mark">M</span></div>
+                      <div className="hero-float-chip chip-tools"><span className="chip-dot blue" />{detectedCount} tools found</div>
+                      <div className="hero-float-chip chip-packages"><span className="chip-dot green" />{homebrewPackages.length} packages</div>
+                      <div className="hero-spark spark-one" />
+                      <div className="hero-spark spark-two" />
+                    </div>
+                  </section>
+
                   <div className="stats-grid">
                     <div className="stat-card">
                       <div className="stat-top">
                         <span>Detected development tools</span>
-                        <span className="stat-icon purple">▦</span>
+                        <span className="stat-icon purple"><SidebarIcon name="overview" /></span>
                       </div>
 
                       <strong>{detectedCount}</strong>
@@ -692,7 +790,7 @@ function App() {
                     <div className="stat-card">
                       <div className="stat-top">
                         <span>Homebrew packages</span>
-                        <span className="stat-icon green">⌘</span>
+                        <span className="stat-icon green"><SidebarIcon name="brew" /></span>
                       </div>
 
                       <strong>{homebrewPackages.length}</strong>
@@ -707,13 +805,17 @@ function App() {
                     <div className="stat-card">
                       <div className="stat-top">
                         <span>Updates available</span>
-                        <span className="stat-icon orange">↻</span>
+                        <span className="stat-icon orange"><SidebarIcon name="refresh" /></span>
                       </div>
 
-                      <strong>—</strong>
+                      <strong>{isLoadingUpdates ? "…" : outdatedPackages.length}</strong>
 
                       <span className="stat-caption">
-                        Update detection not configured
+                        {isLoadingUpdates
+                          ? "Checking Homebrew..."
+                          : outdatedPackages.length === 1
+                            ? "Package ready to update"
+                            : "Packages ready to update"}
                       </span>
                     </div>
                   </div>
@@ -835,7 +937,7 @@ function App() {
                       className="scan-button"
                       onClick={() => setActivePage("Installed")}
                     >
-                      View All Installed Packages →
+                      View all installed packages
                     </button>
                   </section>
                 </>
@@ -855,7 +957,7 @@ function App() {
                   </div>
 
                   <label className="search-box">
-                    <span>⌕</span>
+                    <SidebarIcon name="search" />
 
                     <input
                       type="search"
@@ -913,7 +1015,7 @@ function App() {
 
                   {!catalogSearch.trim() && (
                     <div className="empty-state">
-                      <span>⌕</span>
+                      <SidebarIcon name="search" />
 
                       <h3>Discover Homebrew packages</h3>
 
@@ -962,7 +1064,7 @@ function App() {
                         >
                           <div className="package-card-top">
                             <div className="package-icon">
-                              {pkg.package_type === "Cask" ? "▣" : "⌘"}
+                              <SidebarIcon name={pkg.package_type === "Cask" ? "app" : "terminal"} />
                             </div>
 
                             <span
@@ -1011,9 +1113,7 @@ function App() {
                             <span>
                               {isInstalling || isUninstalling
                                 ? "…"
-                                : installed
-                                  ? "✓"
-                                  : "→"}
+                                : <SidebarIcon name={installed ? "check" : "arrow"} />}
                             </span>
                           </button>
                         </article>
@@ -1027,7 +1127,7 @@ function App() {
                     catalogSearch.trim() !== "" &&
                     availablePackages.length === 0 && (
                       <div className="empty-state">
-                        <span>⌕</span>
+                        <SidebarIcon name="search" />
 
                         <h3>No packages found</h3>
 
@@ -1036,7 +1136,7 @@ function App() {
                     )}
 
                   <div className="demo-notice">
-                    <span>ⓘ</span>
+                      <SidebarIcon name="info" />
 
                     <p>
                       <strong>Homebrew Catalog</strong>{" "}
@@ -1221,7 +1321,7 @@ function App() {
                     homebrewPackages.length > 0 &&
                     filteredHomebrewPackages.length === 0 && (
                       <div className="empty-state">
-                        <span>⌕</span>
+                        <SidebarIcon name="search" />
 
                         <h3>No matching packages</h3>
 
