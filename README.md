@@ -132,43 +132,87 @@ The exact output depends on the build configuration and target platform.
 
 ⸻
 
-🧑‍💻 Development
+🛠️ Development
 
-MacNest uses a desktop architecture powered by Tauri, React, TypeScript, and Rust.
+MacNest is built using modern technologies to provide a desktop package management experience for macOS.
 
-Architecture
+Technology Stack
 
-MacNest combines a modern React frontend with a native Rust backend using Tauri 2.
+Tauri 2
+Provides the native desktop application framework.
 
-Component Technology Responsibility
-Frontend React Renders the application interface
-Language TypeScript Provides type safety
-Build Tool Vite Builds and serves the frontend
-Desktop Framework Tauri 2 Connects the frontend to native functionality
-Backend Rust Handles native application operations
-Package Manager Homebrew Provides package discovery and management
+React
+Powers the application’s user interface.
 
-The frontend communicates with the native backend through Tauri commands.
+TypeScript
+Provides type safety and improves code maintainability.
 
-Project Structure
+Vite
+Handles frontend development and production builds.
 
-MacNest/
-├── public/ # Static assets
-├── src/ # React frontend
-│ ├── App.tsx # Main application interface
-│ └── ...
-├── src-tauri/ # Native Tauri application
-│ ├── icons/ # Application icons
-│ ├── src/ # Rust backend
-│ ├── Cargo.toml # Rust dependencies
-│ └── tauri.conf.json # Tauri configuration
-├── package.json # npm scripts and dependencies
-├── tsconfig.json # TypeScript configuration
-└── README.md
+Rust
+Powers native functionality and communicates with the operating system.
 
-Note: This is an illustrative structure. Some filenames or directories may differ in the actual repository.
+Homebrew
+Provides the package catalog and package management functionality.
 
-The structure above is illustrative. Individual filenames may differ in the current repository.
+How MacNest Works
+
+MacNest combines a React frontend with a Rust backend through Tauri.
+
+* The frontend displays the dashboard, package catalog, installed packages, updates, and activity.
+* The Rust backend handles native application operations.
+* Homebrew provides access to available packages and installation commands.
+* Tauri connects the frontend to the native backend.
+
+Project Organization
+
+The project is organized into the following main areas.
+
+Frontend — src/
+
+Contains the React and TypeScript code responsible for the user interface.
+
+Static Assets — public/
+
+Contains static files used by the frontend.
+
+Native Application — src-tauri/
+
+Contains the Rust backend and Tauri configuration.
+
+Important files include:
+
+* src-tauri/src/ — Native Rust application code.
+* src-tauri/icons/ — Application icons.
+* src-tauri/Cargo.toml — Rust dependencies and project configuration.
+* src-tauri/tauri.conf.json — Tauri application configuration.
+
+Project Configuration
+
+* package.json — Frontend dependencies and npm scripts.
+* tsconfig.json — TypeScript configuration.
+* README.md — Project documentation.
+
+Development Commands
+
+Install dependencies
+
+Run this command from the project root:
+
+npm install
+
+Start the development application
+
+npm run tauri dev
+
+Build the production application
+
+npm run tauri build
+
+The generated macOS application and installer are available under:
+
+src-tauri/target/release/bundle/
 
 ⸻
 
