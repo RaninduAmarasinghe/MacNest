@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
@@ -22,12 +22,41 @@ type AvailablePackage = {
   package_type: string;
 };
 
+type OutdatedPackage = {
+  name: string;
+  package_type: string;
+  installed_version: string;
+  available_version: string;
+};
+
+type ActivityRecord = {
+  id: string;
+  action: "Install" | "Uninstall" | "Update" | "Update all";
+  package_name: string;
+  package_type: string;
+  status: "Completed" | "Failed";
+  timestamp: number;
+  message?: string;
+};
+
+const ACTIVITY_STORAGE_KEY = "macnest.packageActivity";
+
+function loadActivityRecords(): ActivityRecord[] {
+  try {
+    const stored = localStorage.getItem(ACTIVITY_STORAGE_KEY);
+    const parsed: unknown = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? (parsed as ActivityRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 const navigation = [
-  { name: "Dashboard", icon: "▦" },
-  { name: "Explore", icon: "⌕" },
-  { name: "Installed", icon: "▣" },
-  { name: "Updates", icon: "↻" },
-  { name: "Activity", icon: "◷" },
+  { name: "Dashboard" },
+  { name: "Explore" },
+  { name: "Installed" },
+  { name: "Updates" },
+  { name: "Activity" },
 ];
 
 function App() {
@@ -48,6 +77,21 @@ function App() {
   const [homebrewSearch, setHomebrewSearch] = useState("");
   const [homebrewType, setHomebrewType] = useState("All");
 
+  // Outdated Homebrew packages.
+  const [outdatedPackages, setOutdatedPackages] = useState<OutdatedPackage[]>(
+    []
+  );
+  const [isLoadingUpdates, setIsLoadingUpdates] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [updatingPackages, setUpdatingPackages] = useState<string[]>([]);
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+
+  // Recent package activity is stored locally in this app's WebView.
+  const [activityRecords, setActivityRecords] = useState<ActivityRecord[]>(
+    loadActivityRecords
+  );
+
   // Explore catalog state.
   const [catalogSearch, setCatalogSearch] = useState("");
   const [availablePackages, setAvailablePackages] = useState<
@@ -56,6 +100,48 @@ function App() {
   const [isSearchingCatalog, setIsSearchingCatalog] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [hasSearchedCatalog, setHasSearchedCatalog] = useState(false);
+  const catalogSearchId = useRef(0);
+
+  // Installation state.
+  const [installingPackages, setInstallingPackages] = useState<string[]>(
+    []
+  );
+  const [installMessage, setInstallMessage] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  // Uninstallation state.
+  const [uninstallingPackages, setUninstallingPackages] = useState<
+    string[]
+  >([]);
+  const [confirmingUninstall, setConfirmingUninstall] = useState<string | null>(
+    null
+  );
+  const [uninstallMessage, setUninstallMessage] = useState<string | null>(
+    null
+  );
+  const [uninstallError, setUninstallError] = useState<string | null>(null);
+
+  function recordActivity(
+    action: ActivityRecord["action"],
+    packageName: string,
+    packageType: string,
+    status: ActivityRecord["status"],
+    message?: string
+  ) {
+    setActivityRecords((current) => {
+      const record: ActivityRecord = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        action,
+        package_name: packageName,
+        package_type: packageType,
+        status,
+        timestamp: Date.now(),
+        message,
+      };
+      const next = [record, ...current].slice(0, 200);
+      return next;
+    });
+  }
 
   // Detect development tools installed on this Mac.
   async function scanSystem() {
@@ -93,8 +179,226 @@ function App() {
     }
   }
 
+  async function loadOutdatedPackages() {
+    setIsLoadingUpdates(true);
+    setUpdateError(null);
+
+    try {
+      const result = await invoke<OutdatedPackage[]>(
+        "get_outdated_homebrew_packages"
+      );
+      setOutdatedPackages(result);
+      return result;
+    } catch (error) {
+      setUpdateError(String(error));
+      return null;
+    } finally {
+      setIsLoadingUpdates(false);
+    }
+  }
+
+  // Install a Homebrew formula or cask.
+  async function installPackage(pkg: AvailablePackage) {
+    const packageKey = `${pkg.package_type}-${pkg.name}`;
+
+    // Prevent duplicate operations.
+    if (
+      installingPackages.includes(packageKey) ||
+      uninstallingPackages.includes(packageKey) ||
+      updatingPackages.includes(packageKey) ||
+      isUpdatingAll
+    ) {
+      return;
+    }
+
+    // Check whether the package is already installed.
+    const alreadyInstalled = homebrewPackages.some(
+      (item) =>
+        item.name.toLowerCase() === pkg.name.toLowerCase() &&
+        item.package_type.toLowerCase() ===
+          pkg.package_type.toLowerCase()
+    );
+
+    if (alreadyInstalled) {
+      setInstallMessage(`${pkg.name} is already installed.`);
+      setInstallError(null);
+      return;
+    }
+
+    setInstallingPackages((current) => [...current, packageKey]);
+    setInstallMessage(null);
+    setInstallError(null);
+    setUninstallMessage(null);
+    setUninstallError(null);
+
+    try {
+      const result = await invoke<string>(
+        "install_homebrew_package",
+        {
+          name: pkg.name,
+          packageType: pkg.package_type,
+        }
+      );
+
+      setInstallMessage(result);
+      recordActivity("Install", pkg.name, pkg.package_type, "Completed");
+
+      // Refresh inventory after installation.
+      await loadHomebrewPackages();
+    } catch (error) {
+      recordActivity(
+        "Install",
+        pkg.name,
+        pkg.package_type,
+        "Failed",
+        String(error)
+      );
+      setInstallError(
+        `Could not install ${pkg.name}: ${String(error)}`
+      );
+    } finally {
+      setInstallingPackages((current) =>
+        current.filter((key) => key !== packageKey)
+      );
+    }
+  }
+
+  // Uninstall an installed Homebrew formula or cask.
+  async function uninstallPackage(pkg: HomebrewPackage) {
+    const packageKey = `${pkg.package_type}-${pkg.name}`;
+
+    // Prevent duplicate operations.
+    if (
+      uninstallingPackages.includes(packageKey) ||
+      installingPackages.includes(packageKey) ||
+      updatingPackages.includes(packageKey) ||
+      isUpdatingAll
+    ) {
+      return;
+    }
+
+    // Use an in-app confirmation instead of a WebView-native modal.
+    if (confirmingUninstall !== packageKey) {
+      setConfirmingUninstall(packageKey);
+      return;
+    }
+
+    setConfirmingUninstall(null);
+    setUninstallingPackages((current) => [...current, packageKey]);
+    setUninstallMessage(null);
+    setUninstallError(null);
+    setInstallMessage(null);
+    setInstallError(null);
+
+    try {
+      const result = await invoke<string>(
+        "uninstall_homebrew_package",
+        {
+          name: pkg.name,
+          packageType: pkg.package_type,
+        }
+      );
+
+      setUninstallMessage(result);
+      recordActivity("Uninstall", pkg.name, pkg.package_type, "Completed");
+
+      // Refresh inventory after successful removal.
+      await loadHomebrewPackages();
+    } catch (error) {
+      recordActivity(
+        "Uninstall",
+        pkg.name,
+        pkg.package_type,
+        "Failed",
+        String(error)
+      );
+      setUninstallError(
+        `Could not uninstall ${pkg.name}: ${String(error)}`
+      );
+    } finally {
+      setUninstallingPackages((current) =>
+        current.filter((key) => key !== packageKey)
+      );
+    }
+  }
+
+  async function updatePackage(pkg: OutdatedPackage) {
+    const packageKey = `${pkg.package_type}-${pkg.name}`;
+    if (
+      updatingPackages.includes(packageKey) ||
+      installingPackages.includes(packageKey) ||
+      uninstallingPackages.includes(packageKey) ||
+      isUpdatingAll
+    ) return;
+
+    setUpdatingPackages((current) => [...current, packageKey]);
+    setUpdateError(null);
+    setUpdateMessage(null);
+
+    try {
+      const result = await invoke<string>("update_homebrew_package", {
+        name: pkg.name,
+        packageType: pkg.package_type,
+      });
+      setUpdateMessage(result);
+      recordActivity("Update", pkg.name, pkg.package_type, "Completed");
+      await Promise.all([loadOutdatedPackages(), loadHomebrewPackages()]);
+    } catch (error) {
+      recordActivity(
+        "Update",
+        pkg.name,
+        pkg.package_type,
+        "Failed",
+        String(error)
+      );
+      setUpdateError(`Could not update ${pkg.name}: ${String(error)}`);
+    } finally {
+      setUpdatingPackages((current) =>
+        current.filter((key) => key !== packageKey)
+      );
+    }
+  }
+
+  async function updateAllPackages() {
+    if (
+      isUpdatingAll ||
+      updatingPackages.length > 0 ||
+      installingPackages.length > 0 ||
+      uninstallingPackages.length > 0
+    ) return;
+
+    const packagesToUpdate = outdatedPackages;
+    setIsUpdatingAll(true);
+    setUpdateError(null);
+    setUpdateMessage(null);
+
+    try {
+      const result = await invoke<string>("update_all_homebrew_packages");
+      setUpdateMessage(result);
+      recordActivity(
+        "Update all",
+        `${packagesToUpdate.length} packages`,
+        "Formulae and casks",
+        "Completed"
+      );
+      await Promise.all([loadOutdatedPackages(), loadHomebrewPackages()]);
+    } catch (error) {
+      recordActivity(
+        "Update all",
+        `${packagesToUpdate.length} packages`,
+        "Formulae and casks",
+        "Failed",
+        String(error)
+      );
+      setUpdateError(`Could not update packages: ${String(error)}`);
+    } finally {
+      setIsUpdatingAll(false);
+    }
+  }
+
   // Search real Homebrew formulae and casks.
   async function searchCatalog(query: string) {
+    const searchId = ++catalogSearchId.current;
     const trimmedQuery = query.trim();
 
     if (!trimmedQuery) {
@@ -115,14 +419,16 @@ function App() {
         { query: trimmedQuery }
       );
 
-      // Avoid displaying results for an older search.
-      // The input may have changed while Homebrew was running.
+      if (searchId !== catalogSearchId.current) return;
       setAvailablePackages(result);
     } catch (error) {
+      if (searchId !== catalogSearchId.current) return;
       setCatalogError(String(error));
       setAvailablePackages([]);
     } finally {
-      setIsSearchingCatalog(false);
+      if (searchId === catalogSearchId.current) {
+        setIsSearchingCatalog(false);
+      }
     }
   }
 
@@ -131,6 +437,28 @@ function App() {
     void scanSystem();
     void loadHomebrewPackages();
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(activityRecords));
+    } catch {
+      // Keep the current session usable if local storage is unavailable.
+    }
+  }, [activityRecords]);
+
+  useEffect(() => {
+    if (activePage === "Updates") {
+      void loadOutdatedPackages();
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void searchCatalog(catalogSearch);
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [catalogSearch]);
 
   // Filter installed Homebrew packages.
   const filteredHomebrewPackages = homebrewPackages.filter((pkg) => {
@@ -152,16 +480,18 @@ function App() {
   // Page headings.
   const pageTitle =
     activePage === "Dashboard"
-      ? "Everything in its place."
+      ? "Overview"
       : activePage === "Explore"
-        ? "Explore packages."
+        ? "Explore packages"
         : activePage === "Installed"
-          ? "Your installed packages."
+          ? "Installed packages"
           : activePage === "Updates"
-            ? "Package updates."
+            ? "Updates"
             : activePage === "Activity"
-              ? "Recent activity."
-              : activePage;
+              ? "Activity"
+              : activePage === "Settings"
+                ? "Settings"
+                : activePage;
 
   return (
     <div className="app-shell">
@@ -185,10 +515,10 @@ function App() {
               className={`nav-item ${
                 activePage === item.name ? "active" : ""
               }`}
+              aria-current={activePage === item.name ? "page" : undefined}
+              aria-label={item.name}
               onClick={() => setActivePage(item.name)}
             >
-              <span className="nav-icon">{item.icon}</span>
-
               {item.name}
 
               {item.name === "Installed" && (
@@ -207,7 +537,6 @@ function App() {
             }`}
             onClick={() => setActivePage("Settings")}
           >
-            <span className="nav-icon">⚙</span>
             Settings
           </button>
 
@@ -216,7 +545,7 @@ function App() {
 
             <div>
               <strong>MacNest is ready</strong>
-              <span>macOS · Apple Silicon</span>
+              <span>macOS · Local machine</span>
             </div>
           </div>
 
@@ -237,7 +566,7 @@ function App() {
         <header className="topbar">
           <div className="breadcrumb">
             <span>MacNest</span>
-            <span className="breadcrumb-divider">/</span>
+              <span className="breadcrumb-divider">›</span>
             <strong>{activePage}</strong>
           </div>
 
@@ -245,22 +574,77 @@ function App() {
             <span className="status-indicator" />
             <span>System ready</span>
 
-            <button
-              className="settings-button"
-              onClick={() => setActivePage("Settings")}
-              aria-label="Settings"
-            >
-              ⚙
-            </button>
           </div>
         </header>
 
         <section className="page-content">
+          {installingPackages.map((packageKey) => {
+            const packageName = packageKey.replace(/^(Formula|Cask)-/, "");
+
+            return (
+              <div className="package-progress" key={packageKey} role="status">
+                <div className="package-progress-heading">
+                  <strong>Downloading and installing {packageName}</strong>
+                  <span>In progress</span>
+                </div>
+
+                <div
+                  className="package-progress-track"
+                  role="progressbar"
+                  aria-label={`Installing ${packageName}`}
+                  aria-valuetext="Homebrew is downloading and installing the package"
+                >
+                  <span />
+                </div>
+
+                <p>Homebrew is downloading and installing this package.</p>
+              </div>
+            );
+          })}
+
+          {updatingPackages.map((packageKey) => {
+            const packageName = packageKey.replace(/^(Formula|Cask)-/, "");
+
+            return (
+              <div className="package-progress" key={`update-${packageKey}`} role="status">
+                <div className="package-progress-heading">
+                  <strong>Updating {packageName}</strong>
+                  <span>In progress</span>
+                </div>
+                <div
+                  className="package-progress-track"
+                  role="progressbar"
+                  aria-label={`Updating ${packageName}`}
+                  aria-valuetext="Homebrew is downloading and updating this package"
+                >
+                  <span />
+                </div>
+                <p>Homebrew is downloading and installing the update.</p>
+              </div>
+            );
+          })}
+
+          {isUpdatingAll && (
+            <div className="package-progress" role="status">
+              <div className="package-progress-heading">
+                <strong>Updating all outdated packages</strong>
+                <span>In progress</span>
+              </div>
+              <div
+                className="package-progress-track"
+                role="progressbar"
+                aria-label="Updating all outdated packages"
+                aria-valuetext="Homebrew is updating outdated packages"
+              >
+                <span />
+              </div>
+              <p>Homebrew is downloading and installing updates.</p>
+            </div>
+          )}
+
           {/* SETTINGS */}
           {activePage === "Settings" ? (
             <div className="page-heading">
-              <span className="eyebrow">PREFERENCES</span>
-
               <h2>Settings</h2>
 
               <p>
@@ -283,10 +667,6 @@ function App() {
             <>
               {/* PAGE HEADING */}
               <div className="page-heading">
-                <span className="eyebrow">
-                  YOUR DEVELOPMENT WORKSPACE
-                </span>
-
                 <h2>{pageTitle}</h2>
 
                 <p>Manage your developer tools from one place.</p>
@@ -384,7 +764,9 @@ function App() {
                             }`}
                           >
                             <span />
-                            {tool.installed ? "Detected" : "Not detected"}
+                            {tool.installed
+                              ? "Detected"
+                              : "Not detected"}
                           </span>
                         </article>
                       ))}
@@ -482,8 +864,11 @@ function App() {
                       onChange={(event) => {
                         const query = event.target.value;
 
+                        catalogSearchId.current += 1;
                         setCatalogSearch(query);
-                        void searchCatalog(query);
+                        setAvailablePackages([]);
+                        setCatalogError(null);
+                        setIsSearchingCatalog(false);
                       }}
                     />
 
@@ -499,6 +884,30 @@ function App() {
                   {catalogError && (
                     <p className="scan-error">
                       Search failed: {catalogError}
+                    </p>
+                  )}
+
+                  {installMessage && (
+                    <p className="install-success" role="status">
+                      {installMessage}
+                    </p>
+                  )}
+
+                  {installError && (
+                    <p className="scan-error" role="alert">
+                      {installError}
+                    </p>
+                  )}
+
+                  {uninstallMessage && (
+                    <p className="install-success" role="status">
+                      {uninstallMessage}
+                    </p>
+                  )}
+
+                  {uninstallError && (
+                    <p className="scan-error" role="alert">
+                      {uninstallError}
                     </p>
                   )}
 
@@ -527,17 +936,29 @@ function App() {
 
                   <div className="package-grid">
                     {availablePackages.map((pkg) => {
+                      const packageKey =
+                        `${pkg.package_type}-${pkg.name}`;
+
                       const installed = homebrewPackages.some(
                         (item) =>
                           item.name.toLowerCase() ===
                             pkg.name.toLowerCase() &&
-                          item.package_type === pkg.package_type
+                          item.package_type.toLowerCase() ===
+                            pkg.package_type.toLowerCase()
                       );
+
+                      const isInstalling =
+                        installingPackages.includes(packageKey);
+
+                      const isUpdating = updatingPackages.includes(packageKey);
+
+                      const isUninstalling =
+                        uninstallingPackages.includes(packageKey);
 
                       return (
                         <article
                           className="package-card"
-                          key={`${pkg.package_type}-${pkg.name}`}
+                          key={packageKey}
                         >
                           <div className="package-card-top">
                             <div className="package-icon">
@@ -568,18 +989,32 @@ function App() {
                           </div>
 
                           <button
+                            type="button"
                             className="package-action"
-                            disabled={installed}
-                            onClick={() => {
-                              window.alert(
-                                "Installation is not implemented yet. " +
-                                  "MacNest will not make system changes " +
-                                  "until this feature is implemented."
-                              );
-                            }}
+                            disabled={
+                              installed ||
+                              isInstalling ||
+                              isUninstalling ||
+                              isUpdating ||
+                              isUpdatingAll
+                            }
+                            onClick={() => void installPackage(pkg)}
                           >
-                            {installed ? "Installed" : "Install"}
-                            <span>→</span>
+                            {installed
+                              ? "Installed"
+                              : isInstalling
+                                ? "Installing..."
+                                : isUninstalling
+                                  ? "Uninstalling..."
+                                  : "Install"}
+
+                            <span>
+                              {isInstalling || isUninstalling
+                                ? "…"
+                                : installed
+                                  ? "✓"
+                                  : "→"}
+                            </span>
                           </button>
                         </article>
                       );
@@ -596,9 +1031,7 @@ function App() {
 
                         <h3>No packages found</h3>
 
-                        <p>
-                          Try another package name.
-                        </p>
+                        <p>Try another package name.</p>
                       </div>
                     )}
 
@@ -607,8 +1040,9 @@ function App() {
 
                     <p>
                       <strong>Homebrew Catalog</strong>{" "}
-                      Search results come from Homebrew. Installation and
-                      removal are not enabled yet.
+                      Search results come from Homebrew. Packages can be
+                      installed through MacNest, and installed packages can
+                      be removed from the Installed page.
                     </p>
                   </div>
                 </section>
@@ -640,6 +1074,30 @@ function App() {
                   {homebrewError && (
                     <p className="scan-error">
                       Could not load packages: {homebrewError}
+                    </p>
+                  )}
+
+                  {uninstallMessage && (
+                    <p className="install-success" role="status">
+                      {uninstallMessage}
+                    </p>
+                  )}
+
+                  {uninstallError && (
+                    <p className="scan-error" role="alert">
+                      {uninstallError}
+                    </p>
+                  )}
+
+                  {installMessage && (
+                    <p className="install-success" role="status">
+                      {installMessage}
+                    </p>
+                  )}
+
+                  {installError && (
+                    <p className="scan-error" role="alert">
+                      {installError}
                     </p>
                   )}
 
@@ -685,25 +1143,77 @@ function App() {
                     )}
 
                   <div className="detected-tools">
-                    {filteredHomebrewPackages.map((pkg) => (
-                      <article
-                        className="detected-tool"
-                        key={`${pkg.package_type}-${pkg.name}`}
-                      >
-                        <div>
-                          <strong>{pkg.name}</strong>
+                    {filteredHomebrewPackages.map((pkg) => {
+                      const packageKey =
+                        `${pkg.package_type}-${pkg.name}`;
 
-                          <p>
-                            {pkg.package_type} · Version {pkg.version}
-                          </p>
-                        </div>
+                      const isUninstalling =
+                        uninstallingPackages.includes(packageKey);
 
-                        <span className="package-status installed">
-                          <span />
-                          Installed
-                        </span>
-                      </article>
-                    ))}
+                      const isInstalling =
+                        installingPackages.includes(packageKey);
+
+                      const isUpdating = updatingPackages.includes(packageKey);
+
+                      return (
+                        <article
+                          className="detected-tool"
+                          key={packageKey}
+                        >
+                          <div>
+                            <strong>{pkg.name}</strong>
+
+                            <p>
+                              {pkg.package_type} · Version {pkg.version}
+                            </p>
+                          </div>
+
+                          <div className="installed-actions">
+                            <span className="package-status installed">
+                              <span />
+                              Installed
+                            </span>
+
+                            {confirmingUninstall === packageKey && (
+                              <span className="uninstall-confirmation">
+                                Remove this package?
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              className="uninstall-button"
+                              disabled={
+                                isUninstalling || isInstalling || isUpdating || isUpdatingAll
+                              }
+                              onClick={() => {
+                                if (confirmingUninstall === packageKey) {
+                                  void uninstallPackage(pkg);
+                                } else {
+                                  setConfirmingUninstall(packageKey);
+                                }
+                              }}
+                            >
+                              {isUninstalling
+                                ? "Uninstalling..."
+                                : confirmingUninstall === packageKey
+                                  ? "Confirm uninstall"
+                                  : "Uninstall"}
+                            </button>
+
+                            {confirmingUninstall === packageKey && (
+                              <button
+                                type="button"
+                                className="cancel-uninstall-button"
+                                onClick={() => setConfirmingUninstall(null)}
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
 
                   {!isLoadingHomebrew &&
@@ -735,26 +1245,102 @@ function App() {
                 <section className="system-scan">
                   <div className="section-heading">
                     <div>
-                      <h3>Update Manager</h3>
-                      <p>Check for outdated Homebrew packages.</p>
+                      <h3>Available updates</h3>
+                      <p>
+                        {outdatedPackages.length === 1
+                          ? "1 Homebrew package can be updated."
+                          : `${outdatedPackages.length} Homebrew packages can be updated.`}
+                      </p>
                     </div>
 
-                    <span className="package-status">
-                      Not configured
-                    </span>
+                    <div className="update-controls">
+                      <button
+                        type="button"
+                        className="scan-button"
+                        onClick={() => void loadOutdatedPackages()}
+                        disabled={isLoadingUpdates || isUpdatingAll}
+                      >
+                        {isLoadingUpdates ? "Checking..." : "Check again"}
+                      </button>
+                      <button
+                        type="button"
+                        className="update-all-button"
+                        onClick={() => void updateAllPackages()}
+                        disabled={
+                          isLoadingUpdates ||
+                          outdatedPackages.length === 0 ||
+                          isUpdatingAll ||
+                          updatingPackages.length > 0 ||
+                          installingPackages.length > 0 ||
+                          uninstallingPackages.length > 0
+                        }
+                      >
+                        {isUpdatingAll ? "Updating..." : "Update all"}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="empty-state">
-                    <span>↻</span>
-
-                    <h3>Update detection is coming soon</h3>
-
-                    <p>
-                      MacNest currently reads your installed Homebrew
-                      packages. Detecting available updates and safely
-                      applying them will be implemented separately.
+                  {updateError && (
+                    <p className="scan-error" role="alert">
+                      Could not check or update packages: {updateError}
                     </p>
-                  </div>
+                  )}
+
+                  {updateMessage && (
+                    <p className="install-success" role="status">
+                      {updateMessage}
+                    </p>
+                  )}
+
+                  {isLoadingUpdates && outdatedPackages.length === 0 && (
+                    <p className="scan-message">Checking Homebrew for updates...</p>
+                  )}
+
+                  {!isLoadingUpdates && !updateError && outdatedPackages.length === 0 && (
+                    <div className="empty-state">
+                      <h3>Everything is up to date</h3>
+                      <p>Homebrew did not report any outdated formulae or casks.</p>
+                    </div>
+                  )}
+
+                  {outdatedPackages.length > 0 && (
+                    <div className="update-list">
+                      {outdatedPackages.map((pkg) => {
+                        const packageKey = `${pkg.package_type}-${pkg.name}`;
+                        const isUpdating = updatingPackages.includes(packageKey);
+
+                        return (
+                          <article className="update-row" key={packageKey}>
+                            <div className="update-package-name">
+                              <strong>{pkg.name}</strong>
+                              <span>{pkg.package_type}</span>
+                            </div>
+                            <div className="update-version">
+                              <span>Installed</span>
+                              <strong>{pkg.installed_version || "Unknown"}</strong>
+                            </div>
+                            <div className="update-version available-version">
+                              <span>Available</span>
+                              <strong>{pkg.available_version}</strong>
+                            </div>
+                            <button
+                              type="button"
+                              className="update-all-button"
+                              onClick={() => void updatePackage(pkg)}
+                              disabled={
+                                isUpdating ||
+                                isUpdatingAll ||
+                                installingPackages.includes(packageKey) ||
+                                uninstallingPackages.includes(packageKey)
+                              }
+                            >
+                              {isUpdating ? "Updating..." : "Update"}
+                            </button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
                 </section>
               )}
 
@@ -763,22 +1349,47 @@ function App() {
                 <section className="system-scan">
                   <div className="section-heading">
                     <div>
-                      <h3>Activity History</h3>
-                      <p>Review package management activity.</p>
+                      <h3>Recent activity</h3>
+                      <p>Package operations recorded on this Mac.</p>
                     </div>
                   </div>
 
-                  <div className="empty-state">
-                    <span>◷</span>
-
-                    <h3>No activity recorded yet</h3>
-
-                    <p>
-                      Installation, removal, and update history will
-                      appear here once package management operations
-                      and persistent logging are implemented.
-                    </p>
-                  </div>
+                  {activityRecords.length === 0 ? (
+                    <div className="empty-state">
+                      <h3>No package activity yet</h3>
+                      <p>Installs, removals, and updates will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="activity-list">
+                      {activityRecords.map((record) => (
+                        <article className="activity-row" key={record.id}>
+                          <span
+                            className={`activity-indicator ${
+                              record.status === "Failed" ? "failed" : "completed"
+                            }`}
+                          />
+                          <div className="activity-main">
+                            <strong>
+                              {record.action} · {record.package_name}
+                            </strong>
+                            <span>
+                              {record.package_type}
+                              {record.message ? ` · ${record.message}` : ""}
+                            </span>
+                          </div>
+                          <span className={`activity-status ${record.status.toLowerCase()}`}>
+                            {record.status}
+                          </span>
+                          <time dateTime={new Date(record.timestamp).toISOString()}>
+                            {new Intl.DateTimeFormat(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            }).format(record.timestamp)}
+                          </time>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </section>
               )}
             </>
