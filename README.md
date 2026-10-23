@@ -269,9 +269,11 @@ Please report security vulnerabilities privately rather than publishing sensitiv
 
 📄 License
 
-MacNest is intended to use the MIT License.
+MacNest is licensed under the MIT License.
 
-Before distributing the project under this license, add a LICENSE file containing the appropriate MIT License text and confirm that the project’s dependencies and assets permit your intended distribution.
+Copyright © 2026 Ranindu Amarasinghe.
+
+You are free to use, modify, and distribute this software in accordance with the terms of the license.
 
 👨‍💻 Author
 
