@@ -3,11 +3,56 @@ use std::process::Command;
 
 // Check common Homebrew prefixes before relying on the app's PATH. GUI apps
 // often inherit a much smaller PATH than shells do.
-fn homebrew_path() -> &'static str {
-    ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+fn resolve_executable(executable: &str) -> String {
+    let mut candidates = Vec::new();
+    if let Some(path) = std::env::var_os("PATH") {
+        candidates.extend(std::env::split_paths(&path).map(|dir| dir.join(executable)));
+    }
+    candidates.extend(match executable {
+        "brew" => vec![
+            "/opt/homebrew/bin/brew".into(),
+            "/usr/local/bin/brew".into(),
+            "/home/linuxbrew/.linuxbrew/bin/brew".into(),
+        ],
+        "node" | "npm" => vec![
+            std::path::PathBuf::from("/opt/homebrew/bin"),
+            std::path::PathBuf::from("/usr/local/bin"),
+            std::path::PathBuf::from("/usr/bin"),
+        ]
         .into_iter()
-        .find(|path| std::path::Path::new(path).is_file())
-        .unwrap_or("brew")
+        .map(|path| path.join(executable))
+        .collect(),
+        "git" => vec![
+            "/usr/bin/git".into(),
+            "/opt/homebrew/bin/git".into(),
+            "/usr/local/bin/git".into(),
+        ],
+        "python3" => vec![
+            "/usr/bin/python3".into(),
+            "/opt/homebrew/bin/python3".into(),
+            "/usr/local/bin/python3".into(),
+        ],
+        "rustc" | "cargo" => {
+            let mut paths = vec![
+                std::path::PathBuf::from("/opt/homebrew/bin"),
+                std::path::PathBuf::from("/usr/local/bin"),
+            ];
+            if let Some(home) = std::env::var_os("HOME") {
+                paths.push(std::path::PathBuf::from(home).join(".cargo/bin"));
+            }
+            paths.into_iter().map(|p| p.join(executable)).collect()
+        }
+        _ => Vec::new(),
+    });
+    candidates
+        .into_iter()
+        .find(|path| path.is_file())
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|| executable.to_string())
+}
+
+fn homebrew_path() -> String {
+    resolve_executable("brew")
 }
 
 // Development tools detected on the Mac.
@@ -59,16 +104,13 @@ struct AvailablePackage {
 
 // Detect an installed development tool.
 fn detect_tool(name: &str, executable: &str, args: &[&str]) -> DetectedTool {
-    match Command::new(executable).args(args).output() {
+    let path = resolve_executable(executable);
+    match Command::new(path).args(args).output() {
         Ok(output) if output.status.success() => {
-            let stdout = String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
             let version = if stdout.is_empty() {
-                String::from_utf8_lossy(&output.stderr)
-                    .trim()
-                    .to_string()
+                String::from_utf8_lossy(&output.stderr).trim().to_string()
             } else {
                 stdout
             };
@@ -103,31 +145,22 @@ fn scan_development_tools_blocking() -> Vec<DetectedTool> {
         detect_tool("Python", "python3", &["--version"]),
         detect_tool("Rust", "rustc", &["--version"]),
         detect_tool("Cargo", "cargo", &["--version"]),
-        detect_tool("Homebrew", homebrew_path(), &["--version"]),
+        detect_tool("Homebrew", "brew", &["--version"]),
     ]
 }
 
 // Execute a Homebrew command and return its output.
 fn run_homebrew_command(args: &[&str]) -> Result<String, String> {
     let executable = homebrew_path();
-    let output = Command::new(executable)
+    let output = Command::new(&executable)
         .args(args)
         .output()
-        .map_err(|error| {
-            format!(
-                "Could not execute Homebrew at {}: {}",
-                executable, error
-            )
-        })?;
+        .map_err(|error| format!("Could not execute Homebrew at {}: {}", executable, error))?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr)
-            .trim()
-            .to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 
-        let stdout = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         let message = if !stderr.is_empty() {
             stderr
@@ -151,12 +184,10 @@ fn run_homebrew_command(args: &[&str]) -> Result<String, String> {
 // category are still available.
 fn run_homebrew_search(args: &[&str]) -> Result<String, String> {
     let executable = homebrew_path();
-    let output = Command::new(executable)
+    let output = Command::new(&executable)
         .args(args)
         .output()
-        .map_err(|error| {
-            format!("Could not execute Homebrew at {}: {}", executable, error)
-        })?;
+        .map_err(|error| format!("Could not execute Homebrew at {}: {}", executable, error))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
@@ -182,7 +213,10 @@ fn run_homebrew_search(args: &[&str]) -> Result<String, String> {
     }
 
     if message.is_empty() {
-        return Err(format!("Homebrew search failed with exit status: {}", output.status));
+        return Err(format!(
+            "Homebrew search failed with exit status: {}",
+            output.status
+        ));
     }
 
     Err(message)
@@ -220,8 +254,7 @@ fn get_homebrew_packages_blocking() -> Result<Vec<HomebrewPackage>, String> {
     let mut packages = Vec::new();
 
     // Get installed formulae.
-    let formula_output =
-        run_homebrew_command(&["list", "--formula", "--versions"])?;
+    let formula_output = run_homebrew_command(&["list", "--formula", "--versions"])?;
 
     for line in formula_output.lines() {
         let mut parts = line.split_whitespace();
@@ -242,8 +275,7 @@ fn get_homebrew_packages_blocking() -> Result<Vec<HomebrewPackage>, String> {
     }
 
     // Get installed casks.
-    let cask_output =
-        run_homebrew_command(&["list", "--cask", "--versions"])?;
+    let cask_output = run_homebrew_command(&["list", "--cask", "--versions"])?;
 
     for line in cask_output.lines() {
         let mut parts = line.split_whitespace();
@@ -264,11 +296,7 @@ fn get_homebrew_packages_blocking() -> Result<Vec<HomebrewPackage>, String> {
     }
 
     // Sort packages alphabetically.
-    packages.sort_by(|a, b| {
-        a.name
-            .to_lowercase()
-            .cmp(&b.name.to_lowercase())
-    });
+    packages.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     Ok(packages)
 }
@@ -306,10 +334,7 @@ fn get_outdated_homebrew_packages_blocking() -> Result<Vec<OutdatedPackage>, Str
 
 // Install a Homebrew formula or cask.
 #[tauri::command]
-async fn install_homebrew_package(
-    name: String,
-    package_type: String,
-) -> Result<String, String> {
+async fn install_homebrew_package(name: String, package_type: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         install_homebrew_package_blocking(name, package_type)
     })
@@ -317,10 +342,7 @@ async fn install_homebrew_package(
     .map_err(|error| format!("Homebrew installation task failed: {}", error))?
 }
 
-fn install_homebrew_package_blocking(
-    name: String,
-    package_type: String,
-) -> Result<String, String> {
+fn install_homebrew_package_blocking(name: String, package_type: String) -> Result<String, String> {
     validate_package(&name, &package_type)?;
 
     let args = if package_type == "Cask" {
@@ -332,18 +354,12 @@ fn install_homebrew_package_blocking(
     let output = Command::new(homebrew_path())
         .args(&args)
         .output()
-        .map_err(|error| {
-            format!("Could not execute Homebrew: {}", error)
-        })?;
+        .map_err(|error| format!("Could not execute Homebrew: {}", error))?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr)
-            .trim()
-            .to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 
-        let stdout = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         let message = if !stderr.is_empty() {
             stderr
@@ -364,10 +380,7 @@ fn install_homebrew_package_blocking(
 
 // Uninstall a Homebrew formula or cask.
 #[tauri::command]
-async fn uninstall_homebrew_package(
-    name: String,
-    package_type: String,
-) -> Result<String, String> {
+async fn uninstall_homebrew_package(name: String, package_type: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         uninstall_homebrew_package_blocking(name, package_type)
     })
@@ -390,18 +403,12 @@ fn uninstall_homebrew_package_blocking(
     let output = Command::new(homebrew_path())
         .args(&args)
         .output()
-        .map_err(|error| {
-            format!("Could not execute Homebrew: {}", error)
-        })?;
+        .map_err(|error| format!("Could not execute Homebrew: {}", error))?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr)
-            .trim()
-            .to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 
-        let stdout = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         let message = if !stderr.is_empty() {
             stderr
@@ -421,10 +428,7 @@ fn uninstall_homebrew_package_blocking(
 }
 
 #[tauri::command]
-async fn update_homebrew_package(
-    name: String,
-    package_type: String,
-) -> Result<String, String> {
+async fn update_homebrew_package(name: String, package_type: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         update_homebrew_package_blocking(name, package_type)
     })
@@ -432,10 +436,7 @@ async fn update_homebrew_package(
     .map_err(|error| format!("Homebrew update task failed: {}", error))?
 }
 
-fn update_homebrew_package_blocking(
-    name: String,
-    package_type: String,
-) -> Result<String, String> {
+fn update_homebrew_package_blocking(name: String, package_type: String) -> Result<String, String> {
     validate_package(&name, &package_type)?;
 
     let args = if package_type == "Cask" {
@@ -462,19 +463,13 @@ fn update_all_homebrew_packages_blocking() -> Result<String, String> {
 
 // Search available Homebrew formulae and casks.
 #[tauri::command]
-async fn search_homebrew_packages(
-    query: String,
-) -> Result<Vec<AvailablePackage>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        search_homebrew_packages_blocking(query)
-    })
-    .await
-    .map_err(|error| format!("Homebrew search task failed: {}", error))?
+async fn search_homebrew_packages(query: String) -> Result<Vec<AvailablePackage>, String> {
+    tauri::async_runtime::spawn_blocking(move || search_homebrew_packages_blocking(query))
+        .await
+        .map_err(|error| format!("Homebrew search task failed: {}", error))?
 }
 
-fn search_homebrew_packages_blocking(
-    query: String,
-) -> Result<Vec<AvailablePackage>, String> {
+fn search_homebrew_packages_blocking(query: String) -> Result<Vec<AvailablePackage>, String> {
     let query = query.trim();
 
     if query.is_empty() {
@@ -482,8 +477,7 @@ fn search_homebrew_packages_blocking(
     }
 
     // Search formulae.
-    let formula_output =
-        run_homebrew_search(&["search", "--formula", query])?;
+    let formula_output = run_homebrew_search(&["search", "--formula", query])?;
 
     let mut packages: Vec<AvailablePackage> = formula_output
         .lines()
@@ -496,8 +490,7 @@ fn search_homebrew_packages_blocking(
         .collect();
 
     // Search casks.
-    let cask_output =
-        run_homebrew_search(&["search", "--cask", query])?;
+    let cask_output = run_homebrew_search(&["search", "--cask", query])?;
 
     for name in cask_output
         .lines()
@@ -511,15 +504,9 @@ fn search_homebrew_packages_blocking(
     }
 
     // Sort and remove duplicate results.
-    packages.sort_by(|a, b| {
-        a.name
-            .to_lowercase()
-            .cmp(&b.name.to_lowercase())
-    });
+    packages.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
-    packages.dedup_by(|a, b| {
-        a.name == b.name && a.package_type == b.package_type
-    });
+    packages.dedup_by(|a, b| a.name == b.name && a.package_type == b.package_type);
 
     Ok(packages)
 }

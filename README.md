@@ -92,7 +92,7 @@ Download the latest available macOS installer from GitHub Releases.
 3. Follow the installation instructions.
 4. Launch MacNest from your Applications folder.
 
-Note: The current development build targets Apple Silicon Macs (aarch64). Public distribution may require Apple Developer ID signing and notarization.
+The macOS build command below creates a universal DMG for Apple Silicon and Intel Macs. A universal build requires both Rust targets (`aarch64-apple-darwin` and `x86_64-apple-darwin`). The default ad-hoc signature is suitable for local sharing tests, but macOS may still block downloaded copies. To distribute without Gatekeeper warnings, sign with an Apple Developer ID Application certificate and notarize the DMG. Configure `APPLE_SIGNING_IDENTITY` and Apple notarization credentials as described in the [Tauri macOS signing guide](https://tauri.app/distribute/sign/macos/).
 
 Option 2: Run from Source
 
@@ -122,13 +122,13 @@ This starts the frontend development server and launches the MacNest desktop app
 
 Build for Production
 
-npm run tauri build
+npm run build:macos
 
 The generated application and installer bundles are available under:
 
 src-tauri/target/release/bundle/
 
-The exact output depends on the build configuration and target platform.
+The universal macOS DMG is written under `src-tauri/target/universal-apple-darwin/release/bundle/dmg/`.
 
 ⸻
 
@@ -208,11 +208,11 @@ npm run tauri dev
 
 Build the production application
 
-npm run tauri build
+npm run build:macos
 
-The generated macOS application and installer are available under:
+The universal macOS application and installer are available under:
 
-src-tauri/target/release/bundle/
+src-tauri/target/universal-apple-darwin/release/bundle/
 
 ⸻
 

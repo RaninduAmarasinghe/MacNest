@@ -519,8 +519,11 @@ function App() {
   const detectedCount = detectedTools.filter(
     (tool) => tool.installed
   ).length;
+  const homebrewMissing = Boolean(
+    homebrewError && /could not execute homebrew|no such file|not found/i.test(homebrewError)
+  );
   const homebrewStatus = homebrewError
-    ? "Unavailable"
+    ? homebrewMissing ? "Not installed" : "Unavailable"
     : isLoadingHomebrew
       ? "Checking"
       : "Ready";
@@ -612,7 +615,7 @@ function App() {
               <span className="environment-machine">This Mac</span>
               <span className="environment-package-count">
                 {homebrewError
-                  ? "Homebrew unavailable"
+                  ? homebrewMissing ? "Install Homebrew to manage packages" : "Homebrew unavailable"
                   : isLoadingHomebrew
                     ? "Scanning packages…"
                     : `${homebrewPackages.length} packages`}
@@ -634,7 +637,7 @@ function App() {
 
           <div className="topbar-actions">
             <span className={`status-indicator ${homebrewError ? "offline" : isLoadingHomebrew ? "checking" : ""}`} aria-hidden="true" />
-            <span>{homebrewError ? "Homebrew unavailable" : isLoadingHomebrew ? "Checking Homebrew" : "Homebrew ready"}</span>
+            <span>{homebrewError ? homebrewMissing ? "Homebrew not installed" : "Homebrew unavailable" : isLoadingHomebrew ? "Checking Homebrew" : "Homebrew ready"}</span>
 
           </div>
         </header>
