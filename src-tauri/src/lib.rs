@@ -274,8 +274,11 @@ fn get_homebrew_packages_blocking() -> Result<Vec<HomebrewPackage>, String> {
         }
     }
 
-    // Get installed casks.
-    let cask_output = run_homebrew_command(&["list", "--cask", "--versions"])?;
+    // Get installed casks. `--versions` loads every cask definition and fails
+    // outright if one comes from an untrusted tap, so fall back to plain names
+    // with versions read from the Caskroom folders.
+    let cask_output = run_homebrew_command(&["list", "--cask", "--versions"])
+        .or_else(|_| list_casks_from_caskroom())?;
 
     for line in cask_output.lines() {
         let mut parts = line.split_whitespace();
@@ -299,6 +302,36 @@ fn get_homebrew_packages_blocking() -> Result<Vec<HomebrewPackage>, String> {
     packages.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     Ok(packages)
+}
+
+// Build "name version" lines like `brew list --cask --versions` without
+// loading cask definitions.
+fn list_casks_from_caskroom() -> Result<String, String> {
+    let names = run_homebrew_command(&["list", "--cask", "-1"])?;
+    let caskroom = run_homebrew_command(&["--caskroom"])?;
+    let caskroom = std::path::Path::new(caskroom.trim());
+
+    let lines = names
+        .lines()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(|name| {
+            let versions = std::fs::read_dir(caskroom.join(name))
+                .map(|entries| {
+                    entries
+                        .filter_map(Result::ok)
+                        .filter(|entry| entry.path().is_dir())
+                        .filter_map(|entry| entry.file_name().into_string().ok())
+                        .filter(|version| !version.starts_with('.'))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .unwrap_or_default();
+            format!("{} {}", name, versions).trim_end().to_string()
+        })
+        .collect::<Vec<_>>();
+
+    Ok(lines.join("\n"))
 }
 
 #[tauri::command]
