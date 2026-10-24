@@ -884,7 +884,7 @@ function App() {
                         <span className="hero-footnote-mark">⌘</span>
                         <span>Local to this Mac</span>
                         <span className="hero-footnote-divider" />
-                        <span>Powered by Homebrew</span>
+                        <span>Package management for your Mac</span>
                       </div>
                     </div>
                     <div className="hero-visual" aria-hidden="true">
