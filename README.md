@@ -31,6 +31,12 @@ Instead of managing everything through terminal commands, MacNest aims to provid
 
 Note: Available features depend on the current implementation. Package installation, update detection, progress reporting, and system scanning may depend on Homebrew and your local environment.
 
+### MacNest application updates
+
+The installed desktop app checks for MacNest releases when it opens. Users can turn automatic checks off in **Settings → Software updates**, check manually, and install a published update from the same panel. Updates use the GitHub Releases `latest.json` endpoint configured in `src-tauri/tauri.conf.json`.
+
+To publish an update, build the Tauri bundles with updater signing enabled and attach the generated `latest.json`, platform bundles, and `.sig` signatures to the GitHub release. Keep the signing private key and password outside the repository (for example, as CI secrets); the public key in the Tauri config must match that private key. The updater endpoint must serve the generated manifest and signed bundle assets for each supported platform. Development builds do not receive in-app updates.
+
 🛠️ Tech Stack
 
 Technology Purpose

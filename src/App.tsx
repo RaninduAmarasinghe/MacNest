@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import "./App.css";
 
 // Development tools detected on the Mac.
@@ -40,6 +43,7 @@ type ActivityRecord = {
 };
 
 const ACTIVITY_STORAGE_KEY = "macnest.packageActivity";
+const AUTO_UPDATE_CHECK_KEY = "macnest.autoUpdateCheck";
 
 function loadActivityRecords(): ActivityRecord[] {
   try {
@@ -104,6 +108,20 @@ function SidebarIcon({ name }: { name: string }) {
 
 function App() {
   const [activePage, setActivePage] = useState("Dashboard");
+  const [appVersion, setAppVersion] = useState("0.1.0");
+  const [autoUpdateCheck, setAutoUpdateCheck] = useState(() => {
+    try {
+      return localStorage.getItem(AUTO_UPDATE_CHECK_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [availableAppUpdate, setAvailableAppUpdate] = useState<Update | null>(null);
+  const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
+  const [isInstallingAppUpdate, setIsInstallingAppUpdate] = useState(false);
+  const [appUpdateProgress, setAppUpdateProgress] = useState<string | null>(null);
+  const [appUpdateMessage, setAppUpdateMessage] = useState<string | null>(null);
+  const [appUpdateError, setAppUpdateError] = useState<string | null>(null);
 
   // System scan state.
   const [detectedTools, setDetectedTools] = useState<DetectedTool[]>([]);
@@ -144,6 +162,64 @@ function App() {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [hasSearchedCatalog, setHasSearchedCatalog] = useState(false);
   const catalogSearchId = useRef(0);
+
+  async function checkForAppUpdate() {
+    if (!isTauri()) {
+      setAppUpdateMessage("App updates are available in the installed MacNest app.");
+      return;
+    }
+    setIsCheckingAppUpdate(true);
+    setAppUpdateError(null);
+    setAppUpdateMessage(null);
+    try {
+      const update = await check();
+      if (availableAppUpdate) await availableAppUpdate.close();
+      setAvailableAppUpdate(update);
+      setAppUpdateMessage(update ? null : "You’re up to date.");
+      if (!update) setAppUpdateProgress(null);
+    } catch (error) {
+      setAppUpdateError(`Could not check for updates: ${String(error)}`);
+    } finally {
+      setIsCheckingAppUpdate(false);
+    }
+  }
+
+  async function installAppUpdate() {
+    if (!availableAppUpdate) return;
+    setIsInstallingAppUpdate(true);
+    setAppUpdateError(null);
+    setAppUpdateProgress("Preparing update…");
+    try {
+      await availableAppUpdate.downloadAndInstall((event) => {
+        if (event.event === "Started") {
+          setAppUpdateProgress("Downloading update…");
+        } else if (event.event === "Progress") {
+          setAppUpdateProgress("Downloading update…");
+        } else if (event.event === "Finished") {
+          setAppUpdateProgress("Installing update…");
+        }
+      });
+      setAppUpdateProgress("Update installed. Restarting MacNest…");
+      await relaunch();
+    } catch (error) {
+      setAppUpdateError(`Update could not be installed: ${String(error)}`);
+      setAppUpdateProgress(null);
+      setIsInstallingAppUpdate(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isTauri()) void getVersion().then(setAppVersion).catch(() => undefined);
+    if (autoUpdateCheck && isTauri()) void checkForAppUpdate();
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUTO_UPDATE_CHECK_KEY, String(autoUpdateCheck));
+    } catch {
+      // Keep the setting available for this session if storage is unavailable.
+    }
+  }, [autoUpdateCheck]);
 
   // Installation state.
   const [installingPackages, setInstallingPackages] = useState<string[]>(
@@ -724,8 +800,55 @@ function App() {
                 </p>
 
                 <span className="settings-version">
-                  Development build · v0.1.0
+                  {isTauri() ? "Installed app" : "Development build"} · v{appVersion}
                 </span>
+              </div>
+
+              <div className="settings-panel app-update-panel">
+                <div className="update-panel-heading">
+                  <div>
+                    <h3>Software updates</h3>
+                    <p>Keep MacNest up to date with the latest features and fixes.</p>
+                  </div>
+                  {availableAppUpdate && <span className="app-update-badge">Update available</span>}
+                </div>
+
+                <label className="auto-update-setting">
+                  <span>
+                    <strong>Check for updates automatically</strong>
+                    <small>Check when MacNest opens. You choose when to install.</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={autoUpdateCheck}
+                    onChange={(event) => setAutoUpdateCheck(event.target.checked)}
+                    aria-label="Check for MacNest updates automatically"
+                  />
+                </label>
+
+                {availableAppUpdate && (
+                  <div className="app-update-details">
+                    <strong>MacNest {availableAppUpdate.version} is ready</strong>
+                    {availableAppUpdate.date && <span>Released {new Date(availableAppUpdate.date).toLocaleDateString()}</span>}
+                    {availableAppUpdate.body && <p>{availableAppUpdate.body}</p>}
+                  </div>
+                )}
+
+                {appUpdateMessage && <p className="app-update-message" role="status">{appUpdateMessage}</p>}
+                {appUpdateProgress && <p className="app-update-message" role="status">{appUpdateProgress}</p>}
+                {appUpdateError && <p className="scan-error" role="alert">{appUpdateError}</p>}
+
+                <div className="app-update-actions">
+                  <button className="scan-button" onClick={() => void checkForAppUpdate()} disabled={isCheckingAppUpdate || isInstallingAppUpdate || !isTauri()}>
+                    {isCheckingAppUpdate ? "Checking…" : "Check for updates"}
+                  </button>
+                  {availableAppUpdate && (
+                    <button className="hero-primary" onClick={() => void installAppUpdate()} disabled={isInstallingAppUpdate}>
+                      {isInstallingAppUpdate ? "Installing…" : `Install ${availableAppUpdate.version}`}
+                    </button>
+                  )}
+                </div>
+                {!isTauri() && <span className="settings-version">Update checks run in the installed desktop app.</span>}
               </div>
             </div>
           ) : (

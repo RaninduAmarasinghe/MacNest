@@ -24,6 +24,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "macOS": {
       "signingIdentity": "-"
     },
@@ -34,5 +35,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM3RUFGNzMwNThERUE4M0YKUldRL3FONVlNUGZxTnpUeTBuQUI3UzR2QlR1VDhmang3ZGpFL3dTell6OXhveGN4ZGdLS0F0WTEK",
+      "endpoints": [
+        "https://github.com/RaninduAmarasinghe/MacNest/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
