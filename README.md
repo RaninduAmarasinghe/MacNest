@@ -35,7 +35,7 @@ Note: Available features depend on the current implementation. Package installat
 
 The installed desktop app checks for MacNest releases when it opens. Users can turn automatic checks off in **Settings → Software updates**, check manually, and install a published update from the same panel. Updates use the GitHub Releases `latest.json` endpoint configured in `src-tauri/tauri.conf.json`.
 
-To publish an update, build the Tauri bundles with updater signing enabled and attach the generated `latest.json`, platform bundles, and `.sig` signatures to the GitHub release. Keep the signing private key and password outside the repository (for example, as CI secrets); the public key in the Tauri config must match that private key. The updater endpoint must serve the generated manifest and signed bundle assets for each supported platform. Development builds do not receive in-app updates.
+Pushing a normal commit does not publish an app update. Create and push a version tag such as `v0.1.1` to run the macOS release workflow in `.github/workflows/release.yml`. Before the first tagged release, add GitHub Actions secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. The private key must match the public key in `src-tauri/tauri.conf.json`; keep it private and do not commit it. The workflow builds and signs the updater bundle, creates a GitHub Release, and uploads `latest.json` and the installer assets. Development builds do not receive in-app updates.
 
 🛠️ Tech Stack
 
