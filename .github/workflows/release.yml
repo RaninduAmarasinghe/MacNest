@@ -29,6 +29,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Verify updater signing key is configured
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::Configure the TAURI_SIGNING_PRIVATE_KEY repository secret before publishing releases."
+            exit 1
+          fi
+
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -41,4 +50,5 @@ jobs:
           releaseBody: MacNest desktop release.
           releaseDraft: false
           prerelease: false
-          args: --target universal-apple-darwin --bundles dmg
+          uploadUpdaterJson: true
+          args: --target universal-apple-darwin --bundles app,dmg
