@@ -190,6 +190,13 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .homebrew-search { flex: 1; min-width: 0; }
 .homebrew-filter { min-width: 112px; }
 .installed-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.installed-package-list { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
+.installed-package-row { min-height: 62px; gap: 16px; }
+.installed-package-info { min-width: 0; flex: 1; }
+.installed-package-row .installed-actions { flex: 0 1 auto; }
+.installed-controls { align-items: stretch; }
+.installed-controls .homebrew-search { min-width: 120px; }
+.installed-controls .homebrew-filter { flex: 0 0 132px; }
 .uninstall-button { border: 1px solid #e7bfc2; background: var(--surface); color: #bd2430; }
 .uninstall-button:hover:not(:disabled) { border-color: #d7979c; background: var(--red-soft); }
 .uninstall-button:disabled { cursor: wait; opacity: .55; }
@@ -276,6 +283,14 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   .activity-row { grid-template-columns: 8px minmax(0, 1fr) auto; gap: 8px; }
   .activity-row time { grid-column: 2 / -1; }
   .installed-actions { gap: 5px; }
+  .installed-inventory .section-heading { flex-direction: column; }
+  .installed-inventory .scan-button { width: 100%; min-height: 36px; }
+  .installed-package-row { align-items: flex-start; flex-direction: column; gap: 9px; padding: 12px 0; }
+  .installed-package-row .installed-actions { width: 100%; justify-content: flex-start; }
+  .installed-package-info > p { overflow-wrap: anywhere; }
+  .installed-controls { flex-wrap: wrap; }
+  .installed-controls .homebrew-search { flex-basis: 100%; }
+  .installed-controls .homebrew-filter { flex: 1 1 100%; min-height: 38px; }
 }
 
 @media (prefers-color-scheme: dark) {

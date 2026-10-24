@@ -1153,13 +1153,15 @@ function App() {
 
               {/* INSTALLED */}
               {activePage === "Installed" && (
-                <section className="system-scan">
+                <section className="system-scan installed-inventory">
                   <div className="section-heading">
                     <div>
                       <h3>Installed Homebrew Packages</h3>
 
                       <p>
-                        Software currently tracked by Homebrew on this Mac.
+                        {filteredHomebrewPackages.length === homebrewPackages.length
+                          ? `${homebrewPackages.length} packages currently tracked by Homebrew on this Mac.`
+                          : `Showing ${filteredHomebrewPackages.length} of ${homebrewPackages.length} packages.`}
                       </p>
                     </div>
 
@@ -1204,7 +1206,7 @@ function App() {
                     </p>
                   )}
 
-                  <div className="homebrew-controls">
+                  <div className="homebrew-controls installed-controls">
                     <input
                       type="search"
                       className="homebrew-search"
@@ -1245,7 +1247,7 @@ function App() {
                       </p>
                     )}
 
-                  <div className="detected-tools">
+                  <div className="detected-tools installed-package-list">
                     {filteredHomebrewPackages.map((pkg) => {
                       const packageKey =
                         `${pkg.package_type}-${pkg.name}`;
@@ -1260,10 +1262,10 @@ function App() {
 
                       return (
                         <article
-                          className="detected-tool"
+                          className="detected-tool installed-package-row"
                           key={packageKey}
                         >
-                          <div>
+                          <div className="installed-package-info">
                             <strong>{pkg.name}</strong>
 
                             <p>
