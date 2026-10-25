@@ -364,7 +364,7 @@ MacNest interacts with local package-management tools and may execute package-ma
 
 ⸻
 
-📄 License
+## License
 
 MacNest is licensed under the MIT License.
 
