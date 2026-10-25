@@ -34,25 +34,38 @@ Instead of managing everything through terminal commands, MacNest aims to provid
 
 Note: Available features depend on the current implementation, Homebrew, and your local environment. Package installation, update detection, progress reporting, and system scanning may have environment-specific limitations.
 
-📸 Screenshots
+## Screenshots
 
-Explore the MacNest interface and its package management features.
+#### Explore the MacNest interface and its package management features.
 
-Dashboard
+### Dashboard![MacNest Dashboard](docs/screenshots/dashboard.png)
+#### Monitor your development environment, detected tools, installed Homebrew packages, and available updates.
 
-Monitor your development environment, detected tools, installed Homebrew packages, and available updates.
+<br>
+<br>
 
-Explore Packages
 
-Discover Homebrew formulae and casks through the MacNest package catalog.
 
-Installed Packages
 
-Browse installed packages, search your inventory, and manage your development tools.
+### Explore Packages![MacNest Dashboard](docs/screenshots/explore.png)
+#### Discover Homebrew formulae and casks through the MacNest package catalog.
 
-Settings
+<br>
+<br>
 
-Customize the application appearance and manage software update preferences.
+
+
+### Installed Packages![MacNest Dashboard](docs/screenshots/installed.png)
+#### Browse installed packages, search your inventory, and manage your development tools.
+
+<br>
+<br>
+<br
+
+
+
+### Settings![MacNest Dashboard](docs/screenshots/settings.png)
+#### Customize the application appearance and manage software update preferences.
 
 
 
