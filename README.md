@@ -1,7 +1,9 @@
 <div align="center">
 <img src="docs/images/macnest-logo.png" alt="MacNest Logo" width="180"/>
 
-# 🪺 MacNest
+<div align="center">
+
+# MacNest
 
 A modern package manager for macOS developers
 
