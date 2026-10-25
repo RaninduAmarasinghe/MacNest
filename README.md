@@ -7,7 +7,7 @@ A modern package manager for macOS developers
 
 Manage your developer tools, discover Homebrew packages, track downloads, and keep your development environment organized — all from one native-style macOS application.
 
-Features · Installation · Troubleshooting · Development · Contributing
+For anything private, email hello@ranindu.dev
 
 </div>
 
