@@ -34,26 +34,27 @@ Instead of managing everything through terminal commands, MacNest aims to provid
 
 Note: Available features depend on the current implementation, Homebrew, and your local environment. Package installation, update detection, progress reporting, and system scanning may have environment-specific limitations.
 
-## Screenshots
+📸 Screenshots
 
-Screenshots of the actual application can be added here.
-
-Recommended structure:
-
-docs/
-└── screenshots/
-    ├── dashboard.png
-    ├── explore.png
-    ├── installed.png
-    └── settings.png
-
-Once the images have been added, display them below.
+Explore the MacNest interface and its package management features.
 
 Dashboard
 
+Monitor your development environment, detected tools, installed Homebrew packages, and available updates.
+
 Explore Packages
 
-Remove or replace these image references until the corresponding screenshot files exist in the repository.
+Discover Homebrew formulae and casks through the MacNest package catalog.
+
+Installed Packages
+
+Browse installed packages, search your inventory, and manage your development tools.
+
+Settings
+
+Customize the application appearance and manage software update preferences.
+
+
 
 ⸻
 
