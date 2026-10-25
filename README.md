@@ -178,10 +178,10 @@ Until signing and notarization are configured, some users may need to approve th
 
 Developers can clone the repository and run MacNest locally.
 
-Clone the Repository
-
+```bash
 git clone https://github.com/RaninduAmarasinghe/MacNest.git
 cd MacNest
+```
 
 Install Dependencies
 ```bash
@@ -202,12 +202,12 @@ npm run build:macos
 ```
 The generated application and installer bundles are available under:
 
-```bash
+```text
 src-tauri/target/
 ```
 For a universal macOS build, the DMG is typically generated under:
 
-```bash
+```text
 src-tauri/target/universal-apple-darwin/release/bundle/dmg/
 ```
 
