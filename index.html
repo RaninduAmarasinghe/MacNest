@@ -17,6 +17,22 @@
       FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
     -->
     <div id="root"></div>
+    <script>
+      (() => {
+        const key = "macnest.appearance";
+        let appearance = "system";
+        try {
+          const stored = localStorage.getItem(key);
+          if (stored === "light" || stored === "dark") appearance = stored;
+        } catch {
+          // The application will use the system appearance if storage is unavailable.
+        }
+        const followsDarkSystem = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+        document.documentElement.dataset.theme = appearance === "system"
+          ? followsDarkSystem ? "dark" : "light"
+          : appearance;
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
