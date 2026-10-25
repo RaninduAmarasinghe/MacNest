@@ -143,6 +143,11 @@ function SidebarIcon({ name }: { name: string }) {
 
 function App() {
   const [activePage, setActivePage] = useState("Dashboard");
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     if (activePage === "Settings") window.scrollTo(0, 0);
   }, [activePage]);
@@ -689,6 +694,7 @@ function App() {
   useEffect(() => {
     void scanSystem();
     void loadHomebrewPackages();
+    void loadOutdatedPackages();
   }, []);
 
   useEffect(() => {
@@ -737,6 +743,20 @@ function App() {
     : isLoadingHomebrew
       ? "Checking"
       : "Ready";
+  const dashboardStatus = isScanning
+    ? "Scanning development tools"
+    : scanError
+      ? "Scan unavailable"
+      : isLoadingHomebrew
+        ? "Checking Homebrew"
+        : homebrewError
+          ? "Homebrew unavailable"
+          : "Your Mac is ready";
+  const dashboardStatusTone = scanError || homebrewError
+    ? "offline"
+    : isScanning || isLoadingHomebrew
+      ? "checking"
+      : "";
 
   // Page headings.
   const pageTitle =
@@ -753,13 +773,27 @@ function App() {
               : activePage === "Settings"
                 ? "Settings"
                 : activePage;
+  const pageDescription = activePage === "Explore"
+    ? "Find formulae and apps available through Homebrew."
+    : activePage === "Installed"
+      ? "Review and manage packages installed on this Mac."
+      : activePage === "Updates"
+        ? "Keep your Homebrew packages current."
+        : activePage === "Activity"
+          ? "Recent package changes made from MacNest."
+          : "Manage your developer tools from one place.";
+  const greeting = currentTime.getHours() < 12
+    ? "Good morning"
+    : currentTime.getHours() < 18
+      ? "Good afternoon"
+      : "Good evening";
 
   return (
     <div className="app-shell">
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">M</div>
+              <img className="brand-icon" src={macnestIcon} alt="" />
 
           <div>
             <h1>MacNest</h1>
@@ -785,12 +819,12 @@ function App() {
 
               {item.name === "Installed" && (
                 <span className="nav-count">
-                  {homebrewPackages.length}
+                  {isLoadingHomebrew ? "…" : homebrewError ? "—" : homebrewPackages.length}
                 </span>
               )}
-              {item.name === "Updates" && outdatedPackages.length > 0 && (
+              {item.name === "Updates" && (
                 <span className="nav-count update-count">
-                  {outdatedPackages.length}
+                  {isLoadingUpdates ? "…" : updateError ? "—" : outdatedPackages.length}
                 </span>
               )}
             </button>
@@ -852,7 +886,7 @@ function App() {
           </div>
         </header>
 
-        <section className={`page-content ${activePage === "Settings" ? "settings-content" : ""}`}>
+        <section className={`page-content ${activePage === "Settings" ? "settings-content" : ""} ${activePage === "Dashboard" ? "dashboard-content" : "workspace-content"}`}>
           {installingPackages.map((packageKey) => {
             const packageName = packageKey.replace(/^(Formula|Cask)-/, "");
 
@@ -1043,10 +1077,18 @@ function App() {
           ) : (
             <>
               {/* PAGE HEADING */}
-              <div className="page-heading">
-                <h2>{pageTitle}</h2>
-
-                <p>Manage your developer tools from one place.</p>
+              <div className={`page-heading ${activePage === "Dashboard" ? "dashboard-heading" : ""}`}>
+                {activePage === "Dashboard" ? (
+                  <div className="dashboard-heading-copy">
+                    <h2>{`${greeting},`}</h2>
+                    <p>Your developer tools are ready to go.</p>
+                  </div>
+                ) : (
+                  <>
+                    <h2>{pageTitle}</h2>
+                    <p>{pageDescription}</p>
+                  </>
+                )}
               </div>
 
               {/* DASHBOARD */}
@@ -1054,145 +1096,129 @@ function App() {
                 <>
                   <section className="dashboard-hero" aria-labelledby="dashboard-hero-title">
                     <div className="dashboard-hero-copy">
-                      <span className="hero-overline">
-                        <span className={`hero-status-dot ${homebrewError ? "offline" : isLoadingHomebrew ? "checking" : ""}`} />
-                        YOUR MAC · {homebrewError ? "SOURCE UNAVAILABLE" : isLoadingHomebrew ? "CHECKING HOMEBREW" : "HOMEBREW CONNECTED"}
+                      <span className={`hero-status ${dashboardStatusTone}`} role="status">
+                        <span className="hero-status-dot" aria-hidden="true" />
+                        {dashboardStatus}
                       </span>
-                      <h3 id="dashboard-hero-title">A clearer view of your<br className="hero-desktop-break" /> dev setup.</h3>
-                      <p>See what’s installed, spot updates, and keep your tools ready to build.</p>
+                      <h3 id="dashboard-hero-title">
+                        {scanError || homebrewError
+                          ? "Your setup needs attention."
+                          : isScanning || isLoadingHomebrew
+                            ? "Checking your setup…"
+                            : "All tools are set up."}
+                      </h3>
+                      <p>
+                        {scanError || homebrewError
+                          ? "Review the status below, then retry the scan or refresh Homebrew."
+                          : "Scan for additional tools or check for updates."}
+                      </p>
                       <div className="hero-actions">
                         <button className="hero-primary" onClick={() => void scanSystem()} disabled={isScanning}>
-                          <SidebarIcon name="refresh" />
-                          {isScanning ? "Scanning tools…" : "Scan development tools"}
+                          <SidebarIcon name="search" />
+                          {isScanning ? "Scanning development tools…" : "Scan development tools"}
                         </button>
                         <button className="hero-secondary" onClick={() => setActivePage("Updates")}>
-                          Check updates <SidebarIcon name="arrow" />
+                          <SidebarIcon name="refresh" />
+                          Check for updates
                         </button>
                       </div>
-                      <div className="hero-footnote">
-                        <span className="hero-footnote-mark">⌘</span>
-                        <span>Local to this Mac</span>
-                        <span className="hero-footnote-divider" />
-                        <span>Homebrew packages, all in one place</span>
-                      </div>
                     </div>
-                    <div className="hero-visual" aria-hidden="true">
-                      <div className="hero-orbit orbit-one" />
-                      <div className="hero-orbit orbit-two" />
-                      <div className="hero-orbit orbit-three" />
-                      <div className="hero-core"><span className="hero-core-mark">M</span></div>
-                      <div className="hero-float-chip chip-tools"><span className="chip-dot blue" />{detectedCount} tools found</div>
-                      <div className="hero-float-chip chip-packages"><span className="chip-dot green" />{homebrewPackages.length} packages</div>
-                      <div className="hero-spark spark-one" />
-                      <div className="hero-spark spark-two" />
+                    <div className="dashboard-hero-art" aria-hidden="true">
+                      <svg className="dashboard-hero-waves" viewBox="0 0 640 300" preserveAspectRatio="none">
+                        <path className="hero-wave hero-wave-blue" d="M0 172C92 138 128 104 217 120c95 17 131 89 226 83 72-5 132-59 197-89v186H0Z" />
+                        <path className="hero-wave hero-wave-lavender" d="M0 231c93-48 146-108 245-106 94 2 142 75 224 76 72 1 119-47 171-75v174H0Z" />
+                        <path className="hero-wave hero-wave-periwinkle" d="M0 267c100-27 152-77 245-72 91 5 140 65 230 64 69-1 115-31 165-54v95H0Z" />
+                      </svg>
+                      <span className="hero-orb" />
+                      <span className="hero-float-tile hero-tile-brew">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6.5 8h10v8.5a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3V8Z" />
+                          <path d="M16.5 10h1.2a2.5 2.5 0 0 1 0 5h-1.2M7 7c-.6-1.1.7-1.5.2-2.5M11.5 7c-.6-1.1.7-1.5.2-2.5M16 7c-.6-1.1.7-1.5.2-2.5" />
+                        </svg>
+                      </span>
+                      <span className="hero-float-tile hero-tile-package"><SidebarIcon name="box" /></span>
+                      <span className="hero-float-tile hero-tile-settings"><SidebarIcon name="settings" /></span>
+                      <div className="dashboard-terminal">
+                        <div className="dashboard-terminal-chrome"><i /><i /><i /></div>
+                        <div className="dashboard-terminal-body">
+                          <span className="terminal-prompt-mark">›_</span><span>brew list</span>
+                          <span className="terminal-result">local package inventory</span>
+                        </div>
+                      </div>
                     </div>
                   </section>
 
                   <div className="stats-grid">
                     <div className="stat-card">
-                      <div className="stat-top">
-                        <span>Detected development tools</span>
-                        <span className="stat-icon purple"><SidebarIcon name="overview" /></span>
-                      </div>
-
-                      <strong>{detectedCount}</strong>
-
-                      <span className="stat-caption">
-                        Tools detected on your Mac
-                      </span>
+                      <span className="stat-icon purple"><SidebarIcon name="box" /></span>
+                      <div className="stat-copy"><strong>{isScanning ? "…" : scanError ? "—" : detectedCount}</strong><span>Development tools</span><small>{isScanning ? "Scanning this Mac" : scanError ? "Unavailable" : "Detected on your Mac"}</small></div>
                     </div>
 
                     <div className="stat-card">
-                      <div className="stat-top">
-                        <span>Homebrew packages</span>
-                        <span className="stat-icon green"><SidebarIcon name="brew" /></span>
-                      </div>
-
-                      <strong>{homebrewPackages.length}</strong>
-
-                      <span className="stat-caption">
-                        {isLoadingHomebrew
-                          ? "Loading inventory..."
-                          : "Formulae and casks detected"}
-                      </span>
+                      <span className="stat-icon green"><SidebarIcon name="box" /></span>
+                      <div className="stat-copy"><strong>{isLoadingHomebrew ? "…" : homebrewError ? "—" : homebrewPackages.length}</strong><span>Homebrew packages</span><small>{isLoadingHomebrew ? "Loading inventory…" : homebrewError ? "Unavailable" : "Installed"}</small></div>
                     </div>
 
                     <div className="stat-card">
-                      <div className="stat-top">
-                        <span>Updates available</span>
-                        <span className="stat-icon orange"><SidebarIcon name="refresh" /></span>
-                      </div>
-
-                      <strong>{isLoadingUpdates ? "…" : outdatedPackages.length}</strong>
-
-                      <span className="stat-caption">
-                        {isLoadingUpdates
-                          ? "Checking Homebrew..."
-                          : outdatedPackages.length === 1
-                            ? "Package ready to update"
-                            : "Packages ready to update"}
-                      </span>
+                      <span className="stat-icon orange"><SidebarIcon name="refresh" /></span>
+                      <div className="stat-copy"><strong>{isLoadingUpdates ? "…" : updateError ? "—" : outdatedPackages.length}</strong><span>Updates available</span><small>{isLoadingUpdates ? "Checking Homebrew…" : updateError ? "Unavailable" : "Packages ready to update"}</small></div>
                     </div>
                   </div>
 
-                  {/* System Scan */}
-                  <section className="system-scan">
-                    <div className="section-heading">
-                      <div>
-                        <h3>System Scan</h3>
-                        <p>Developer tools detected on this Mac.</p>
+                  <div className="dashboard-panel-grid">
+                    {/* System Scan */}
+                    <section className="system-scan dashboard-scan">
+                      <div className="section-heading">
+                        <div>
+                          <h3>System Scan</h3>
+                          <p>Developer tools detected on this Mac.</p>
+                        </div>
+                        <button className="scan-button" onClick={() => void scanSystem()} disabled={isScanning}>
+                          <SidebarIcon name="refresh" />
+                          {isScanning ? "Scanning…" : "Scan Again"}
+                        </button>
                       </div>
 
-                      <button
-                        className="scan-button"
-                        onClick={() => void scanSystem()}
-                        disabled={isScanning}
-                      >
-                        {isScanning ? "Scanning..." : "Scan Again"}
-                      </button>
-                    </div>
-
-                    {scanError && (
-                      <p className="scan-error">
-                        Scan failed: {scanError}
-                      </p>
-                    )}
-
-                    {isScanning && detectedTools.length === 0 && (
-                      <p className="scan-message">
-                        Scanning your Mac...
-                      </p>
-                    )}
-
-                    <div className="detected-tools">
-                      {detectedTools.map((tool) => (
-                        <article
-                          className="detected-tool"
-                          key={tool.name}
-                        >
-                          <div>
-                            <strong>{tool.name}</strong>
-                            <p>{tool.version ?? "Not detected"}</p>
-                          </div>
-
-                          <span
-                            className={`package-status ${
-                              tool.installed ? "installed" : ""
-                            }`}
-                          >
-                            <span />
-                            {tool.installed
-                              ? "Detected"
-                              : "Not detected"}
-                          </span>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
+                      {scanError ? (
+                        <p className="scan-error" role="alert">Scan failed: {scanError}</p>
+                      ) : isScanning ? (
+                        <p className="scan-message" role="status">Scanning development tools on this Mac…</p>
+                      ) : (
+                        <div className="detected-tools">
+                          {detectedTools.map((tool) => (
+                            <article className="detected-tool" key={tool.name}>
+                              <span className={`tool-mark tool-${tool.name.toLowerCase().replace(/[^a-z]/g, "")}`}>
+                                {tool.name === "Homebrew"
+                                  ? <SidebarIcon name="brew" />
+                                  : tool.name === "Git"
+                                    ? "G"
+                                    : tool.name === "Node.js"
+                                      ? "n"
+                                      : tool.name === "Python"
+                                        ? "Py"
+                                        : tool.name === "Rust"
+                                          ? "R"
+                                          : tool.name === "npm"
+                                            ? "npm"
+                                            : "C"}
+                              </span>
+                              <strong className="tool-name">{tool.name}</strong>
+                              <div className="tool-version">
+                                <p>{tool.version ?? "Not detected"}</p>
+                              </div>
+                              <span className={`package-status ${tool.installed ? "installed" : ""}`}>
+                                <span />
+                                {tool.installed ? "Detected" : "Not detected"}
+                              </span>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </section>
 
                   {/* Homebrew Overview */}
-                  <section className="system-scan">
-                    <div className="section-heading">
+                    <section className="system-scan">
+                      <div className="section-heading">
                       <div>
                         <h3>Homebrew Overview</h3>
                         <p>A quick look at your installed packages.</p>
@@ -1205,56 +1231,51 @@ function App() {
                       >
                         {isLoadingHomebrew ? "Loading..." : "Refresh"}
                       </button>
-                    </div>
+                      </div>
 
-                    {homebrewError && (
-                      <p className="scan-error">
-                        Could not load packages: {homebrewError}
-                      </p>
-                    )}
-
-                    <div className="detected-tools">
-                      {homebrewPackages.slice(0, 8).map((pkg) => (
-                        <article
-                          className="detected-tool"
-                          key={`${pkg.package_type}-${pkg.name}`}
-                        >
-                          <div>
-                            <strong>{pkg.name}</strong>
-
-                            <p>
-                              {pkg.package_type} · Version {pkg.version}
-                            </p>
-                          </div>
-
-                          <span className="package-status installed">
-                            <span />
-                            Installed
-                          </span>
-                        </article>
-                      ))}
-                    </div>
-
-                    {!isLoadingHomebrew &&
-                      !homebrewError &&
-                      homebrewPackages.length === 0 && (
-                        <p className="scan-message">
-                          No Homebrew packages found.
+                      {homebrewError && (
+                        <p className="scan-error" role="alert">
+                          Could not load packages: {homebrewError}
                         </p>
                       )}
 
-                    <p className="scan-message">
-                      Showing {Math.min(8, homebrewPackages.length)} of{" "}
-                      {homebrewPackages.length} packages.
-                    </p>
+                      {!homebrewError && isLoadingHomebrew && (
+                        <p className="scan-message" role="status">Loading Homebrew packages…</p>
+                      )}
 
-                    <button
-                      className="scan-button"
-                      onClick={() => setActivePage("Installed")}
-                    >
-                      View all installed packages
-                    </button>
-                  </section>
+                      {!homebrewError && !isLoadingHomebrew && (
+                        <div className="detected-tools">
+                          {homebrewPackages.slice(0, 8).map((pkg) => (
+                            <article className="detected-tool" key={`${pkg.package_type}-${pkg.name}`}>
+                              <div>
+                                <strong>{pkg.name}</strong>
+                                <p>{pkg.package_type} · Version {pkg.version}</p>
+                              </div>
+
+                              <span className="package-status installed">
+                                <span />
+                                Installed
+                              </span>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      {!isLoadingHomebrew && !homebrewError && homebrewPackages.length === 0 && (
+                        <p className="scan-message">No Homebrew packages found.</p>
+                      )}
+
+                      {!homebrewError && !isLoadingHomebrew && (
+                        <p className="scan-message">
+                          Showing {Math.min(8, homebrewPackages.length)} of {homebrewPackages.length} packages.
+                        </p>
+                      )}
+
+                      <button className="scan-button" onClick={() => setActivePage("Installed")}>
+                        View all installed packages
+                      </button>
+                    </section>
+                  </div>
                 </>
               )}
 
