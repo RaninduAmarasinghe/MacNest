@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-
+use tauri::Emitter;
+use tauri::Manager;
+use tauri::menu::Menu;
+#[cfg(target_os = "macos")]
+use tauri::menu::{MenuItem, MenuItemKind, PredefinedMenuItem};
 // Check common Homebrew prefixes before relying on the app's PATH. GUI apps
 // often inherit a much smaller PATH than shells do.
 fn resolve_executable(executable: &str) -> String {
@@ -548,6 +552,62 @@ fn search_homebrew_packages_blocking(query: String) -> Result<Vec<AvailablePacka
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .menu(|app| {
+            let menu = Menu::default(app)?;
+
+            #[cfg(target_os = "macos")]
+            {
+                if let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() {
+                    let settings = MenuItem::with_id(
+                        app,
+                        "settings",
+                        "Settings…",
+                        true,
+                        Some("CmdOrCtrl+Comma"),
+                    )?;
+
+                    let check_updates = MenuItem::with_id(
+                        app,
+                        "check_for_updates",
+                        "Check for Updates…",
+                        true,
+                        None::<&str>,
+                    )?;
+
+                    let separator = PredefinedMenuItem::separator(app)?;
+
+                    // Insert after About and before Services.
+                    app_menu.insert_items(&[&settings, &check_updates], 2)?;
+
+                    // Add a separator before Services.
+                    app_menu.insert(&separator, 4)?;
+                } else {
+                    eprintln!("MacNest: could not find the default application submenu.");
+                }
+            }
+
+            Ok(menu)
+        })
+        .on_menu_event(|app, event| {
+            if event.id() == "settings" {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                if let Err(error) = app.emit("macnest-open-settings", ()) {
+                    eprintln!("MacNest: failed to emit Settings event: {error}");
+                }
+            } else if event.id() == "check_for_updates" {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                if let Err(error) = app.emit("macnest-check-for-updates", ()) {
+                    eprintln!("MacNest: failed to emit update event: {error}");
+                }
+            }
+        })
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![

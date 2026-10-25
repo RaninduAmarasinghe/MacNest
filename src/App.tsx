@@ -3,6 +3,9 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
+import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import macnestIcon from "../macnest-icon.png";
 import "./App.css";
 
 // Development tools detected on the Mac.
@@ -42,8 +45,19 @@ type ActivityRecord = {
   message?: string;
 };
 
+type Appearance = "system" | "light" | "dark";
+
 const ACTIVITY_STORAGE_KEY = "macnest.packageActivity";
 const AUTO_UPDATE_CHECK_KEY = "macnest.autoUpdateCheck";
+const APPEARANCE_STORAGE_KEY = "macnest.appearance";
+const LAST_UPDATE_CHECK_KEY = "macnest.lastUpdateCheck";
+const MACNEST_REPOSITORY_URL = "https://github.com/RaninduAmarasinghe/MacNest";
+const MACNEST_RELEASES_URL = `${MACNEST_REPOSITORY_URL}/releases`;
+const APPEARANCE_OPTIONS: Array<{ value: Appearance; label: string; description: string }> = [
+  { value: "system", label: "System", description: "Follow macOS system appearance." },
+  { value: "light", label: "Light", description: "Always use light mode." },
+  { value: "dark", label: "Dark", description: "Always use dark mode." },
+];
 
 function loadActivityRecords(): ActivityRecord[] {
   try {
@@ -52,6 +66,27 @@ function loadActivityRecords(): ActivityRecord[] {
     return Array.isArray(parsed) ? (parsed as ActivityRecord[]) : [];
   } catch {
     return [];
+  }
+}
+
+function loadLastUpdateCheck(): number | null {
+  try {
+    const stored = localStorage.getItem(LAST_UPDATE_CHECK_KEY);
+    const timestamp = stored ? Number(stored) : NaN;
+    return Number.isFinite(timestamp) ? timestamp : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadAppearancePreference(): Appearance {
+  try {
+    const stored = localStorage.getItem(APPEARANCE_STORAGE_KEY);
+    return stored === "light" || stored === "dark" || stored === "system"
+      ? stored
+      : "system";
+  } catch {
+    return "system";
   }
 }
 
@@ -108,6 +143,10 @@ function SidebarIcon({ name }: { name: string }) {
 
 function App() {
   const [activePage, setActivePage] = useState("Dashboard");
+  useEffect(() => {
+    if (activePage === "Settings") window.scrollTo(0, 0);
+  }, [activePage]);
+  const [appearance, setAppearance] = useState<Appearance>(loadAppearancePreference);
   const [appVersion, setAppVersion] = useState("0.1.0");
   const [autoUpdateCheck, setAutoUpdateCheck] = useState(() => {
     try {
@@ -122,6 +161,9 @@ function App() {
   const [appUpdateProgress, setAppUpdateProgress] = useState<string | null>(null);
   const [appUpdateMessage, setAppUpdateMessage] = useState<string | null>(null);
   const [appUpdateError, setAppUpdateError] = useState<string | null>(null);
+  const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(
+    loadLastUpdateCheck
+  );
 
   // System scan state.
   const [detectedTools, setDetectedTools] = useState<DetectedTool[]>([]);
@@ -162,27 +204,48 @@ function App() {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [hasSearchedCatalog, setHasSearchedCatalog] = useState(false);
   const catalogSearchId = useRef(0);
+  const availableAppUpdateRef = useRef<Update | null>(null);
+  const isCheckingAppUpdateRef = useRef(false);
+  const checkForAppUpdateRef = useRef<() => Promise<void>>(async () => undefined);
+
+  availableAppUpdateRef.current = availableAppUpdate;
 
   async function checkForAppUpdate() {
     if (!isTauri()) {
       setAppUpdateMessage("App updates are available in the installed MacNest app.");
       return;
     }
+    if (isCheckingAppUpdateRef.current) return;
+    isCheckingAppUpdateRef.current = true;
     setIsCheckingAppUpdate(true);
     setAppUpdateError(null);
-    setAppUpdateMessage(null);
+    setAppUpdateMessage("Checking for updates…");
     try {
       const update = await check();
-      if (availableAppUpdate) await availableAppUpdate.close();
+      const previousUpdate = availableAppUpdateRef.current;
+      if (previousUpdate) {
+        try {
+          await previousUpdate.close();
+        } catch {
+          // The newly checked update is still usable if closing the old one fails.
+        }
+      }
+      availableAppUpdateRef.current = update;
       setAvailableAppUpdate(update);
       setAppUpdateMessage(update ? null : "You’re up to date.");
       if (!update) setAppUpdateProgress(null);
     } catch (error) {
+      setAppUpdateMessage(null);
       setAppUpdateError(`Could not check for updates: ${String(error)}`);
     } finally {
+      const completedAt = Date.now();
+      setLastUpdateCheck(completedAt);
+      isCheckingAppUpdateRef.current = false;
       setIsCheckingAppUpdate(false);
     }
   }
+
+  checkForAppUpdateRef.current = checkForAppUpdate;
 
   async function installAppUpdate() {
     if (!availableAppUpdate) return;
@@ -214,12 +277,83 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const systemAppearance = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyAppearance = () => {
+      root.dataset.theme = appearance === "system"
+        ? systemAppearance.matches ? "dark" : "light"
+        : appearance;
+    };
+
+    applyAppearance();
+    if (appearance !== "system") return;
+
+    systemAppearance.addEventListener("change", applyAppearance);
+    return () => systemAppearance.removeEventListener("change", applyAppearance);
+  }, [appearance]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(APPEARANCE_STORAGE_KEY, appearance);
+    } catch {
+      // The selected appearance remains active for this session if storage is unavailable.
+    }
+  }, [appearance]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let disposed = false;
+    let unlisten: Array<() => void> = [];
+
+    void Promise.all([
+      listen("macnest-open-settings", () => setActivePage("Settings")),
+      listen("macnest-check-for-updates", () => {
+        setActivePage("Settings");
+        void checkForAppUpdateRef.current();
+      }),
+    ])
+      .then((listeners) => {
+        if (disposed) {
+          listeners.forEach((stopListening) => stopListening());
+        } else {
+          unlisten = listeners;
+        }
+      })
+      .catch((error) => {
+        console.error("MacNest could not listen for application menu actions:", error);
+      });
+
+    return () => {
+      disposed = true;
+      unlisten.forEach((stopListening) => stopListening());
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem(AUTO_UPDATE_CHECK_KEY, String(autoUpdateCheck));
     } catch {
       // Keep the setting available for this session if storage is unavailable.
     }
   }, [autoUpdateCheck]);
+
+  useEffect(() => {
+    if (lastUpdateCheck === null) return;
+    try {
+      localStorage.setItem(LAST_UPDATE_CHECK_KEY, String(lastUpdateCheck));
+    } catch {
+      // The current session can still show the completed check time.
+    }
+  }, [lastUpdateCheck]);
+
+  async function openExternalUrl(url: string) {
+    if (isTauri()) {
+      await openUrl(url);
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   // Installation state.
   const [installingPackages, setInstallingPackages] = useState<string[]>(
@@ -718,7 +852,7 @@ function App() {
           </div>
         </header>
 
-        <section className="page-content">
+        <section className={`page-content ${activePage === "Settings" ? "settings-content" : ""}`}>
           {installingPackages.map((packageKey) => {
             const packageName = packageKey.replace(/^(Formula|Cask)-/, "");
 
@@ -785,30 +919,65 @@ function App() {
 
           {/* SETTINGS */}
           {activePage === "Settings" ? (
-            <div className="page-heading">
-              <h2>Settings</h2>
-
-              <p>
-                Configure your MacNest package management workspace.
-              </p>
-
-              <div className="settings-panel">
-                <h3>About MacNest</h3>
-
-                <p>
-                  Your personal macOS package management workspace.
-                </p>
-
-                <span className="settings-version">
-                  {isTauri() ? "Installed app" : "Development build"} · v{appVersion}
-                </span>
+            <div className="settings-page">
+              <div className="settings-page-heading">
+                <h2>Settings</h2>
+                <p>Manage your MacNest appearance, workspace, and application updates.</p>
               </div>
 
-              <div className="settings-panel app-update-panel">
-                <div className="update-panel-heading">
+              <section className="about-card" aria-labelledby="about-macnest-heading">
+                <img className="about-app-icon" src={macnestIcon} alt="MacNest application icon" />
+                <h3 id="about-macnest-heading">MacNest</h3>
+                <span className="about-version">Version {appVersion}</span>
+                <p>Your personal macOS package management workspace.</p>
+                <div className="about-actions">
+                  <button className="settings-secondary-button" onClick={() => void openExternalUrl(MACNEST_RELEASES_URL)}>
+                    Release Notes
+                  </button>
+                  <button className="settings-secondary-button" onClick={() => void openExternalUrl(MACNEST_REPOSITORY_URL)}>
+                    View on GitHub
+                  </button>
+                </div>
+              </section>
+
+              <section className="appearance-card" aria-labelledby="appearance-card-heading">
+                <div className="settings-card-heading">
                   <div>
-                    <h3>Software updates</h3>
-                    <p>Keep MacNest up to date with the latest features and fixes.</p>
+                    <h3 id="appearance-card-heading">Appearance</h3>
+                  </div>
+                </div>
+
+                <div className="appearance-setting">
+                  <div className="appearance-setting-copy">
+                    <strong>Appearance</strong>
+                    <p>Choose how MacNest looks on your device.</p>
+                  </div>
+
+                  <div className="appearance-options" role="group" aria-label="Appearance">
+                    {APPEARANCE_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`appearance-option ${appearance === option.value ? "selected" : ""}`}
+                        aria-pressed={appearance === option.value}
+                        onClick={() => setAppearance(option.value)}
+                      >
+                        <span className="appearance-option-heading">
+                          <strong>{option.label}</strong>
+                          {appearance === option.value && <SidebarIcon name="check" />}
+                        </span>
+                        <span className="appearance-option-description">{option.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="software-updates-card" aria-labelledby="software-updates-heading">
+                <div className="settings-card-heading">
+                  <div>
+                    <h3 id="software-updates-heading">Software Updates</h3>
+                    <p>Keep MacNest current with the latest fixes and improvements.</p>
                   </div>
                   {availableAppUpdate && <span className="app-update-badge">Update available</span>}
                 </div>
@@ -824,7 +993,24 @@ function App() {
                     onChange={(event) => setAutoUpdateCheck(event.target.checked)}
                     aria-label="Check for MacNest updates automatically"
                   />
+                  <span className="macos-switch" aria-hidden="true"><span /></span>
                 </label>
+
+                <div className="update-status-row" aria-live="polite">
+                  <div>
+                    <span className={`update-status-dot ${appUpdateError ? "error" : availableAppUpdate ? "available" : isCheckingAppUpdate ? "checking" : ""}`} aria-hidden="true" />
+                    <strong>Update status</strong>
+                  </div>
+                  <span>
+                    {appUpdateError
+                      ? appUpdateError
+                      : isCheckingAppUpdate
+                        ? "Checking for updates…"
+                        : availableAppUpdate
+                          ? "Update available"
+                          : appUpdateMessage ?? "No update check has been completed yet."}
+                  </span>
+                </div>
 
                 {availableAppUpdate && (
                   <div className="app-update-details">
@@ -834,22 +1020,25 @@ function App() {
                   </div>
                 )}
 
-                {appUpdateMessage && <p className="app-update-message" role="status">{appUpdateMessage}</p>}
                 {appUpdateProgress && <p className="app-update-message" role="status">{appUpdateProgress}</p>}
-                {appUpdateError && <p className="scan-error" role="alert">{appUpdateError}</p>}
 
-                <div className="app-update-actions">
-                  <button className="scan-button" onClick={() => void checkForAppUpdate()} disabled={isCheckingAppUpdate || isInstallingAppUpdate || !isTauri()}>
-                    {isCheckingAppUpdate ? "Checking…" : "Check for updates"}
-                  </button>
-                  {availableAppUpdate && (
-                    <button className="hero-primary" onClick={() => void installAppUpdate()} disabled={isInstallingAppUpdate}>
-                      {isInstallingAppUpdate ? "Installing…" : `Install ${availableAppUpdate.version}`}
+                <div className="app-update-footer">
+                  <span className="last-checked">
+                    Last checked: {lastUpdateCheck ? new Date(lastUpdateCheck).toLocaleString() : "Never"}
+                  </span>
+                  <div className="app-update-actions">
+                    <button className="settings-primary-button" onClick={() => void checkForAppUpdate()} disabled={isCheckingAppUpdate || isInstallingAppUpdate || !isTauri()}>
+                      {isCheckingAppUpdate ? "Checking…" : "Check for updates"}
                     </button>
-                  )}
+                    {availableAppUpdate && (
+                      <button className="settings-install-button" onClick={() => void installAppUpdate()} disabled={isInstallingAppUpdate}>
+                        {isInstallingAppUpdate ? "Installing…" : `Install ${availableAppUpdate.version}`}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {!isTauri() && <span className="settings-version">Update checks run in the installed desktop app.</span>}
-              </div>
+              </section>
             </div>
           ) : (
             <>
@@ -884,7 +1073,7 @@ function App() {
                         <span className="hero-footnote-mark">⌘</span>
                         <span>Local to this Mac</span>
                         <span className="hero-footnote-divider" />
-                        <span>Package management for your development environment</span>
+                        <span>Homebrew packages, all in one place</span>
                       </div>
                     </div>
                     <div className="hero-visual" aria-hidden="true">
