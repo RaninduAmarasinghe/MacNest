@@ -1,4 +1,5 @@
 <div align="center">
+<img src="docs/images/macnest-logo.png" alt="MacNest Logo" width="180"/>
 
 # 🪺 MacNest
 
@@ -12,7 +13,7 @@ Features · Installation · Troubleshooting · Development · Contributing
 
 ⸻
 
- ## Overview
+## Overview
 
 MacNest is a desktop application designed to simplify package management on macOS. Built with Tauri, React, TypeScript, and Rust, it combines a modern interface inspired by native macOS design with the power of Homebrew.
 
@@ -20,17 +21,27 @@ Instead of managing everything through terminal commands, MacNest aims to provid
 
 ## Features
 
-#### *  Dashboard — Access your development environment and package management overview.
-#### *  Explore Packages — Search the Homebrew catalog to discover available formulae and casks.
-#### *  Installed Packages — View and manage installed development tools.
-#### *  Download Progress — Monitor package installation progress.
-#### *  Updates — Review available package updates and manage your update workflow.
-#### *  Activity Tracking — Review package management activities.
-#### *  System Scan — Discover development tools available on your Mac.
-#### *  Native macOS-Inspired UI — Clean layouts, familiar controls, and system appearance support.
-#### *  Light and Dark Appearance — Adapt the interface to your preferred appearance.
-#### *  Desktop Performance — Use a lightweight desktop architecture powered by Tauri and Rust.
-#### *  In-App Updates — Check for new MacNest releases and install published updates from Settings.
+#### \* Dashboard — Access your development environment and package management overview.
+
+#### \* Explore Packages — Search the Homebrew catalog to discover available formulae and casks.
+
+#### \* Installed Packages — View and manage installed development tools.
+
+#### \* Download Progress — Monitor package installation progress.
+
+#### \* Updates — Review available package updates and manage your update workflow.
+
+#### \* Activity Tracking — Review package management activities.
+
+#### \* System Scan — Discover development tools available on your Mac.
+
+#### \* Native macOS-Inspired UI — Clean layouts, familiar controls, and system appearance support.
+
+#### \* Light and Dark Appearance — Adapt the interface to your preferred appearance.
+
+#### \* Desktop Performance — Use a lightweight desktop architecture powered by Tauri and Rust.
+
+#### \* In-App Updates — Check for new MacNest releases and install published updates from Settings.
 
 Note: Available features depend on the current implementation, Homebrew, and your local environment. Package installation, update detection, progress reporting, and system scanning may have environment-specific limitations.
 
@@ -39,35 +50,30 @@ Note: Available features depend on the current implementation, Homebrew, and you
 #### Explore the MacNest interface and its package management features.
 
 ### Dashboard![MacNest Dashboard](docs/screenshots/dashboard.png)
+
 #### Monitor your development environment, detected tools, installed Homebrew packages, and available updates.
 
 <br>
 <br>
 
-
-
-
 ### Explore Packages![MacNest Dashboard](docs/screenshots/explore.png)
+
 #### Discover Homebrew formulae and casks through the MacNest package catalog.
 
 <br>
 <br>
 
-
-
 ### Installed Packages![MacNest Dashboard](docs/screenshots/installed.png)
+
 #### Browse installed packages, search your inventory, and manage your development tools.
 
 <br>
 <br>
 <br
 
-
-
 ### Settings![MacNest Dashboard](docs/screenshots/settings.png)
+
 #### Customize the application appearance and manage software update preferences.
-
-
 
 ⸻
 
@@ -75,23 +81,23 @@ Note: Available features depend on the current implementation, Homebrew, and you
 
 For installing MacNest
 
-* A compatible Mac running macOS.
-* The appropriate MacNest release for your processor.
+- A compatible Mac running macOS.
+- The appropriate MacNest release for your processor.
 
 For developing MacNest from source
 
-* macOS
-* Node.js and npm
-* Rust and Cargo
-* Homebrew
-* The development prerequisites required by Tauri for macOS
+- macOS
+- Node.js and npm
+- Rust and Cargo
+- Homebrew
+- The development prerequisites required by Tauri for macOS
 
 Useful resources:
 
-* Node.js
-* Rust
-* Homebrew
-* Tauri v2 prerequisites
+- Node.js
+- Rust
+- Homebrew
+- Tauri v2 prerequisites
 
 ⸻
 
@@ -108,8 +114,8 @@ Useful resources:
 
 Choose the correct release for your processor when separate builds are provided:
 
-* Apple Silicon: M1, M2, M3, M4, and compatible later processors.
-* Intel: Intel-based Macs.
+- Apple Silicon: M1, M2, M3, M4, and compatible later processors.
+- Intel: Intel-based Macs.
 
 If a universal build is provided, it supports both architectures.
 
@@ -182,9 +188,9 @@ For a more seamless installation experience, MacNest should be signed using an A
 
 The Apple Developer Program generally costs US$99 per year, subject to local pricing and eligibility.
 
-* Apple Developer Program
-* Tauri macOS code signing
-* Apple notarization documentation
+- Apple Developer Program
+- Tauri macOS code signing
+- Apple notarization documentation
 
 Until signing and notarization are configured, some users may need to approve the application manually. Approval is not guaranteed to be available for every warning.
 
@@ -198,6 +204,7 @@ cd MacNest
 ```
 
 Install Dependencies
+
 ```bash
 npm install
 ```
@@ -207,6 +214,7 @@ Start Development Mode
 ```bash
 npm run tauri dev
 ```
+
 This starts the frontend development server and launches the MacNest desktop application.
 
 Build for Production
@@ -214,11 +222,13 @@ Build for Production
 ```bash
 npm run build:macos
 ```
+
 The generated application and installer bundles are available under:
 
 ```text
 src-tauri/target/
 ```
+
 For a universal macOS build, the DMG is typically generated under:
 
 ```text
@@ -232,7 +242,6 @@ rustup target add x86_64-apple-darwin
 
 Note: Building from source requires the development prerequisites listed above. Exact output paths may vary depending on the build target and Tauri configuration.
 
-
 ⸻
 
 ## Development
@@ -241,20 +250,20 @@ MacNest combines a React frontend with a Rust backend through Tauri.
 
 ##### Technology Stack
 
-Technology	Purpose
-Tauri 2	Native desktop application framework
-React	User interface
-TypeScript	Type-safe frontend development
-Vite	Frontend development and production builds
-Rust	Native backend functionality
-Homebrew	macOS package management
+Technology Purpose
+Tauri 2 Native desktop application framework
+React User interface
+TypeScript Type-safe frontend development
+Vite Frontend development and production builds
+Rust Native backend functionality
+Homebrew macOS package management
 
 ##### How MacNest Works
 
-* The frontend displays the dashboard, package catalog, installed packages, updates, and activity.
-* The Rust backend handles native application operations.
-* Homebrew provides access to available packages and package-management commands.
-* Tauri connects the frontend to the native backend.
+- The frontend displays the dashboard, package catalog, installed packages, updates, and activity.
+- The Rust backend handles native application operations.
+- Homebrew provides access to available packages and package-management commands.
+- Tauri connects the frontend to the native backend.
 
 ##### Development Commands
 
@@ -290,15 +299,15 @@ The exact available scripts are defined in package.json.
 
 Potential future improvements include:
 
-* Improve package search and filtering.
-* Add package details and dependency information.
-* Improve installation and uninstallation feedback.
-* Enhance download progress reporting.
-* Improve update management.
-* Add package categories and favorites.
-* Improve automated testing.
-* Expand installation and troubleshooting documentation.
-* Add or improve Apple code signing and notarization for public releases.
+- Improve package search and filtering.
+- Add package details and dependency information.
+- Improve installation and uninstallation feedback.
+- Enhance download progress reporting.
+- Improve update management.
+- Add package categories and favorites.
+- Improve automated testing.
+- Expand installation and troubleshooting documentation.
+- Add or improve Apple code signing and notarization for public releases.
 
 Roadmap items may change as development progresses.
 
@@ -316,8 +325,7 @@ git checkout -b feature/your-feature
 ```
 
 3. Make your changes and test them.
-   
-5. Commit your changes:
+4. Commit your changes:
 
 ```bash
 git commit -m "feat: add your feature"
@@ -349,10 +357,10 @@ Include relevant details, reproduction steps, your macOS version, and error mess
 
 MacNest interacts with local package-management tools and may execute package-management operations on your Mac.
 
-* Review package sources and installation commands carefully.
-* Download MacNest only from the official repository.
-* Never bypass serious malware or security warnings.
-* Report suspected security vulnerabilities privately to the maintainer rather than publishing sensitive exploit details in public issues.
+- Review package sources and installation commands carefully.
+- Download MacNest only from the official repository.
+- Never bypass serious malware or security warnings.
+- Report suspected security vulnerabilities privately to the maintainer rather than publishing sensitive exploit details in public issues.
 
 ⸻
 
@@ -372,7 +380,7 @@ See the LICENSE file for details.
 
 Ranindu Amarasinghe
 
-* GitHub: @RaninduAmarasinghe
+- GitHub: @RaninduAmarasinghe
 
 ⸻
 
