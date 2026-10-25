@@ -87,16 +87,20 @@ Useful installation resources:
 - Homebrew
 - Tauri prerequisites
 
+
+
 📥 Installation
 
 Option 1: Download MacNest
 
-Download the latest available macOS installer from GitHub Releases.
+Download the latest MacNest release for your Mac from GitHub Releases.
 
-1. Download the .dmg file compatible with your Mac.
-2. Open the downloaded disk image.
-3. Follow the installation instructions.
-4. Launch MacNest from your Applications folder.
+Having trouble opening MacNest?
+
+macOS may display a security warning depending on the application’s signing and notarization status.
+
+Follow our Installation Guide for instructions on opening MacNest safely.
+
 
 The macOS build command below creates a universal DMG for Apple Silicon and Intel Macs. A universal build requires both Rust targets (`aarch64-apple-darwin` and `x86_64-apple-darwin`). The default ad-hoc signature is suitable for local sharing tests, but macOS may still block downloaded copies. To distribute without Gatekeeper warnings, sign with an Apple Developer ID Application certificate and notarize the DMG. Configure `APPLE_SIGNING_IDENTITY` and Apple notarization credentials as described in the [Tauri macOS signing guide](https://tauri.app/distribute/sign/macos/).
 
@@ -166,10 +170,10 @@ How MacNest Works
 
 MacNest combines a React frontend with a Rust backend through Tauri.
 
-* The frontend displays the dashboard, package catalog, installed packages, updates, and activity.
-* The Rust backend handles native application operations.
-* Homebrew provides access to available packages and installation commands.
-* Tauri connects the frontend to the native backend.
+- The frontend displays the dashboard, package catalog, installed packages, updates, and activity.
+- The Rust backend handles native application operations.
+- Homebrew provides access to available packages and installation commands.
+- Tauri connects the frontend to the native backend.
 
 Project Organization
 
@@ -189,16 +193,16 @@ Contains the Rust backend and Tauri configuration.
 
 Important files include:
 
-* src-tauri/src/ — Native Rust application code.
-* src-tauri/icons/ — Application icons.
-* src-tauri/Cargo.toml — Rust dependencies and project configuration.
-* src-tauri/tauri.conf.json — Tauri application configuration.
+- src-tauri/src/ — Native Rust application code.
+- src-tauri/icons/ — Application icons.
+- src-tauri/Cargo.toml — Rust dependencies and project configuration.
+- src-tauri/tauri.conf.json — Tauri application configuration.
 
 Project Configuration
 
-* package.json — Frontend dependencies and npm scripts.
-* tsconfig.json — TypeScript configuration.
-* README.md — Project documentation.
+- package.json — Frontend dependencies and npm scripts.
+- tsconfig.json — TypeScript configuration.
+- README.md — Project documentation.
 
 Development Commands
 
