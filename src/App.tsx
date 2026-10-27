@@ -143,13 +143,14 @@ function SidebarIcon({ name }: { name: string }) {
 
 function App() {
   const [activePage, setActivePage] = useState("Dashboard");
+  const mainContentRef = useRef<HTMLElement | null>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
-    if (activePage === "Settings") window.scrollTo(0, 0);
+    if (activePage === "Settings") mainContentRef.current?.scrollTo(0, 0);
   }, [activePage]);
   const [appearance, setAppearance] = useState<Appearance>(loadAppearancePreference);
   const [appVersion, setAppVersion] = useState("0.1.0");
@@ -870,7 +871,7 @@ function App() {
       </aside>
 
       {/* Main content */}
-      <main className="main-content">
+      <main className="main-content" ref={mainContentRef}>
         {/* Top navigation */}
         <header className="topbar">
           <div className="breadcrumb">
@@ -1217,7 +1218,7 @@ function App() {
                     </section>
 
                   {/* Homebrew Overview */}
-                    <section className="system-scan">
+                    <section className="system-scan dashboard-homebrew">
                       <div className="section-heading">
                       <div>
                         <h3>Homebrew Overview</h3>
