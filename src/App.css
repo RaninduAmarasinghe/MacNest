@@ -218,7 +218,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .breadcrumb strong { color: var(--ink); font-weight: 600; }
 .topbar-actions { gap: 8px; color: var(--secondary); }
 .topbar-actions .status-indicator { width: 6px; height: 6px; flex-basis: 6px; }
-.page-content { width: min(100%, 1180px); min-width: 0; flex: 0 0 auto; margin: 0 auto; padding: 28px 30px 42px; }
+.page-content { width: min(100%, 1180px); min-width: 0; flex: 0 0 auto; margin: 0 auto; padding: 20px 30px 42px; }
 .page-heading { margin-bottom: 22px; }
 .page-heading h2 { margin: 0; color: var(--ink); font-size: 26px; font-weight: 650; line-height: 1.2; letter-spacing: -.55px; }
 .page-heading > p { margin: 5px 0 0; color: var(--secondary); font-size: 12px; line-height: 1.5; }
@@ -357,7 +357,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .demo-notice p { margin: 0; font-size: 10px; line-height: 1.55; }
 .demo-notice strong { color: var(--ink); font-weight: 600; }
 .settings-page { width: min(100%, 680px); display: flex; flex-direction: column; gap: 16px; margin: 0 auto; color: var(--ink); }
-.settings-content { min-height: calc(100vh - 52px); background: var(--canvas); }
+.settings-content { background: var(--canvas); }
 .settings-page-heading { margin-bottom: 8px; }
 .settings-page-heading h2 { margin: 0; color: var(--ink); font-size: 27px; font-weight: 700; letter-spacing: -.7px; }
 .settings-page-heading p { margin: 6px 0 0; color: var(--secondary); font-size: 13px; line-height: 1.5; }
@@ -477,7 +477,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   .package-progress-track > span { animation: none; transform: translateX(80%); }
 }
 
-.dashboard-content { position: relative; isolation: isolate; width: min(100%, 1400px); padding: 28px 38px 40px; container-type: inline-size; }
+.dashboard-content { position: relative; isolation: isolate; width: min(100%, 1400px); padding: 20px 38px 40px; container-type: inline-size; }
 .dashboard-content::before {
   position: absolute;
   z-index: -1;
@@ -653,7 +653,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .dashboard-content .package-status { font-size: 10px; padding: 4px 8px; }
 
 /* Shared workspace styling keeps every package page in the same visual family. */
-.workspace-content { width: min(100%, 1320px); padding: 28px 38px 42px; }
+.workspace-content { width: min(100%, 1320px); padding: 20px 38px 42px; }
 .workspace-content > .page-heading { margin-bottom: 20px; }
 .workspace-content .page-heading h2 { font-size: 29px; font-weight: 700; letter-spacing: -.75px; }
 .workspace-content .page-heading > p { margin-top: 5px; font-size: 13px; }

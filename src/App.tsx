@@ -150,7 +150,7 @@ function App() {
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
-    if (activePage === "Settings") mainContentRef.current?.scrollTo(0, 0);
+    mainContentRef.current?.scrollTo(0, 0);
   }, [activePage]);
   const [appearance, setAppearance] = useState<Appearance>(loadAppearancePreference);
   const [appVersion, setAppVersion] = useState("0.1.0");
